@@ -37,30 +37,35 @@ jobs:
             goos: windows
             goarch: amd64
             output: build/singboxffi.dll
+            header: build/singboxffi.h
 
           - target: linux-amd64
             runner: ubuntu-24.04
             goos: linux
             goarch: amd64
             output: build/libsingboxffi.so
+            header: build/libsingboxffi.h
 
           - target: linux-arm64
             runner: ubuntu-24.04-arm
             goos: linux
             goarch: arm64
             output: build/libsingboxffi.so
+            header: build/libsingboxffi.h
 
           - target: macos-amd64
             runner: macos-15-intel
             goos: darwin
             goarch: amd64
             output: build/libsingboxffi.dylib
+            header: build/libsingboxffi.h
 
           - target: macos-arm64
             runner: macos-15
             goos: darwin
             goarch: arm64
             output: build/libsingboxffi.dylib
+            header: build/libsingboxffi.h
 
     steps:
       - name: Checkout
@@ -117,17 +122,17 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Get-ChildItem "${{ matrix.output }}", build/singboxffi.h | Format-Table Name, Length, LastWriteTime
-          Select-String -Path build/singboxffi.h -Pattern "sb_version|sb_go_version|sb_init|sb_check_config|sb_free_string"
+          Get-ChildItem "${{ matrix.output }}", "${{ matrix.header }}" | Format-Table Name, Length, LastWriteTime
+          Select-String -Path "${{ matrix.header }}" -Pattern "sb_version|sb_go_version|sb_init|sb_check_config|sb_free_string"
 
       - name: Inspect artifacts
         if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euo pipefail
-          ls -lh "${{ matrix.output }}" build/singboxffi.h
+          ls -lh "${{ matrix.output }}" "${{ matrix.header }}"
           file "${{ matrix.output }}"
-          grep -E "sb_version|sb_go_version|sb_init|sb_check_config|sb_free_string" build/singboxffi.h
+          grep -E "sb_version|sb_go_version|sb_init|sb_check_config|sb_free_string" "${{ matrix.header }}"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -135,7 +140,7 @@ jobs:
           name: singboxffi-${{ matrix.target }}
           path: |
             ${{ matrix.output }}
-            build/singboxffi.h
+            ${{ matrix.header }}
           if-no-files-found: error
 
   android:
