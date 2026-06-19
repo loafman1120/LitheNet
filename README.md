@@ -237,6 +237,10 @@ build/singboxffi.dll
 build/singboxffi.h
 ```
 
+GitHub Actions:
+
+The repository includes `.github/workflows/build.yml`, which builds the Windows `c-shared` DLL on `windows-latest` with MSYS2 UCRT64 GCC and uploads `singboxffi.dll` plus `singboxffi.h` as an artifact.
+
 Linux:
 
 ```bash

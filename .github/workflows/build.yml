@@ -1,0 +1,64 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Windows c-shared
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Setup MSYS2 UCRT64 GCC
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          msystem: UCRT64
+          path-type: inherit
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+
+      - name: Build DLL
+        shell: pwsh
+        env:
+          CGO_ENABLED: "1"
+          CC: gcc
+        run: |
+          $env:Path = "C:\msys64\ucrt64\bin;$env:Path"
+          New-Item -ItemType Directory -Force build | Out-Null
+          go build -buildvcs=false -trimpath -buildmode=c-shared `
+            -tags "with_gvisor,with_quic,with_wireguard,with_utls,with_naive_outbound,with_purego,with_clash_api,badlinkname,tfogo_checklinkname0" `
+            -ldflags "-s -w -buildid= -checklinkname=0" `
+            -o build\singboxffi.dll .
+
+      - name: Inspect artifacts
+        shell: pwsh
+        run: |
+          Get-ChildItem build\singboxffi.dll, build\singboxffi.h | Format-Table Name, Length, LastWriteTime
+          Select-String -Path build\singboxffi.h -Pattern "sb_version|sb_go_version|sb_init|sb_check_config|sb_free_string"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: singboxffi-windows-amd64
+          path: |
+            build/singboxffi.dll
+            build/singboxffi.h
+          if-no-files-found: error
+
