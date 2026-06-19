@@ -1,51 +1,97 @@
 # LitheNet
 
-LitheNet is a Flutter GUI proxy client that consumes prebuilt `singbox-ffi`
-shared-library artifacts. The app does not compile Go and does not link static
-archives directly.
+LitheNet is a Flutter desktop proxy client UI powered by the separate
+`loafman1120/singbox-ffi` native core package.
 
-## Architecture
+This repository is the app. It does not build the Go FFI core. The native
+`singbox-ffi` binaries are built and released from `loafman1120/singbox-ffi`,
+while this Flutter project imports that package's Flutter FFI plugin API.
 
-- `loafman1120/singbox-ffi` builds and publishes native core artifacts.
-- `loafman1120/LitheNet` builds the Flutter UI.
-- LitheNet v1 loads the shared native core with Dart FFI.
-- Static `singbox-ffi` archives are not exposed in the UI until a dedicated
-  Flutter platform package or native-assets integration exists.
-
-## Get The Core
-
-Download the latest successful Windows shared artifact from `singbox-ffi`:
-
-```powershell
-pwsh scripts/download_core_windows.ps1
-```
-
-The script places the DLL at:
+## Project Layout
 
 ```text
-native/windows/singboxffi.dll
+lib/        Flutter UI
+bin/        Dart smoke runners for the same FFI API
+test/       Flutter widget tests
+windows/    Windows desktop runner
 ```
 
-## Run
+LitheNet consumes the published `singbox_ffi` Flutter FFI plugin from pub.dev:
+
+```yaml
+singbox_ffi: ^0.1.0
+```
+
+## Native Core
+
+Build or download the native libraries from `loafman1120/singbox-ffi`.
+
+Dynamic library artifact names:
+
+```text
+Windows: singboxffi.dll
+macOS:   libsingboxffi.dylib
+Linux:   libsingboxffi.so
+```
+
+For Flutter builds, place the native library in the `singbox_ffi` plugin artifact
+directory and let Flutter's generated plugin CMake bundle it.
+
+The app loads the bundled plugin core with `SingboxFfi.openBundled()`. It does
+not expose process-symbol/static mode in the UI.
+
+GitHub Actions downloads every `singboxffi-*` artifact from the latest
+successful `loafman1120/singbox-ffi` Build workflow, including:
+
+- desktop dynamic artifacts
+- desktop static artifacts
+- Android dynamic artifacts
+- Android static artifacts
+
+The LitheNet workflow stages the Windows DLL into the resolved pub cache copy of
+`singbox_ffi` before building. The Flutter FFI plugin then contributes it through
+`PLUGIN_BUNDLED_LIBRARIES`; LitheNet does not modify Flutter generated CMake.
+
+## Run The App
 
 ```powershell
-flutter create --platforms windows .
 flutter pub get
 flutter run -d windows
 ```
 
-The first screen starts and stops a local mixed proxy on `127.0.0.1:2080`.
+The app validates a sing-box JSON config and starts/stops the local mixed proxy
+through the bundled `singbox_ffi` plugin.
 
-Test it from another terminal while the proxy is running:
+## Run The Dart Smoke Proxy
+
+```powershell
+dart pub get
+dart run bin\proxy.dart ..\singbox-ffi\build\singboxffi.dll
+```
+
+In another terminal:
 
 ```powershell
 curl.exe -x socks5h://127.0.0.1:2080 https://example.com
 ```
 
-## Static Linking Policy
+Press `Ctrl+C` in the Dart process to stop the proxy.
 
-LitheNet does not use static mode in v1. Static artifacts from `singbox-ffi` are
-for future integration work only. Do not add CMake, Gradle, or runner-level
-static archive linking to this repository. When static mode becomes product
-ready, it should arrive through a reusable package such as `singbox_ffi_flutter`
-or a native-assets integration.
+## Verify
+
+```powershell
+flutter analyze
+flutter test
+flutter build windows --debug
+```
+
+## License Notice
+
+The `singbox-ffi` native package links against
+`github.com/sagernet/sing-box/experimental/libbox`. sing-box is distributed under
+the GNU General Public License, version 3 or later, with the additional upstream
+naming restriction copied in `LICENSE.sing-box`.
+
+Distributions that embed the native library should carry the corresponding GPL
+notice and must not use the sing-box name or imply association with the upstream
+application without prior consent.

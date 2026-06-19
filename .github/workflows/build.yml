@@ -1,47 +1,118 @@
-name: Build LitheNet
+name: Flutter
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
+
+concurrency:
+  group: flutter-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SINGBOX_FFI_REPO: loafman1120/singbox-ffi
 
 jobs:
   windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
+    name: Windows Flutter
+    runs-on: windows-2025
+    timeout-minutes: 35
 
-      - uses: subosito/flutter-action@v2
+    steps:
+      - name: Checkout LitheNet
+        uses: actions/checkout@v4
+        with:
+          path: LitheNet
+
+      - name: Find latest singbox-ffi artifacts
+        id: singbox_ffi
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $runId = gh run list `
+            --repo "${env:SINGBOX_FFI_REPO}" `
+            --workflow Build `
+            --branch main `
+            --status success `
+            --limit 1 `
+            --json databaseId `
+            --jq '.[0].databaseId'
+          if (-not $runId) {
+            throw "No successful singbox-ffi Build workflow run found."
+          }
+          "run_id=$runId" >> $env:GITHUB_OUTPUT
+
+      - name: Download singbox-ffi cores
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ env.SINGBOX_FFI_REPO }}
+          run-id: ${{ steps.singbox_ffi.outputs.run_id }}
+          pattern: singboxffi-*
+          path: LitheNet/native/singboxffi/artifacts
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      - name: Generate Windows runner
-        run: flutter create --platforms windows .
-
-      - name: Get dependencies
+      - name: Pub get
+        working-directory: LitheNet
         run: flutter pub get
 
-      - name: Download singbox-ffi shared core
+      - name: Stage singbox-ffi plugin artifacts
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: pwsh scripts/download_core_windows.ps1
-
-      - name: Build Windows app
-        run: flutter build windows
-
-      - name: Copy native core beside executable
-        shell: pwsh
+        working-directory: LitheNet
         run: |
-          Copy-Item native/windows/singboxffi.dll build/windows/x64/runner/Release/singboxffi.dll -Force
+          $packageConfig = Get-Content .dart_tool/package_config.json -Raw | ConvertFrom-Json
+          $package = $packageConfig.packages | Where-Object { $_.name -eq 'singbox_ffi' } | Select-Object -First 1
+          if (-not $package) {
+            throw "singbox_ffi was not resolved by pub get."
+          }
+          $packageRoot = [System.Uri]::new($package.rootUri).LocalPath
+          $artifactDir = Join-Path $packageRoot 'windows/artifacts/x64'
+          New-Item -ItemType Directory -Force $artifactDir | Out-Null
+          Copy-Item `
+            -LiteralPath native/singboxffi/artifacts/singboxffi-windows-amd64/singboxffi.dll `
+            -Destination (Join-Path $artifactDir 'singboxffi.dll') `
+            -Force
+          Copy-Item `
+            -LiteralPath native/singboxffi/artifacts/singboxffi-windows-amd64/singboxffi.h `
+            -Destination (Join-Path $artifactDir 'singboxffi.h') `
+            -Force
 
-      - uses: actions/upload-artifact@v4
+      - name: Analyze
+        working-directory: LitheNet
+        run: flutter analyze
+
+      - name: Test
+        working-directory: LitheNet
+        run: flutter test
+
+      - name: Build Windows debug
+        working-directory: LitheNet
+        run: flutter build windows --debug
+
+      - name: Upload LitheNet Windows app
+        uses: actions/upload-artifact@v4
         with:
-          name: lithenet-windows-x64
-          path: build/windows/x64/runner/Release/**
+          name: lithenet-windows-debug
+          path: |
+            LitheNet/build/windows/x64/runner/Debug/**
+          if-no-files-found: error
+
+      - name: Upload downloaded singbox-ffi cores
+        uses: actions/upload-artifact@v4
+        with:
+          name: lithenet-singboxffi-cores
+          path: |
+            LitheNet/native/singboxffi/**
           if-no-files-found: error
