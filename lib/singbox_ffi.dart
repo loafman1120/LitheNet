@@ -33,13 +33,10 @@ typedef SbHandle = int;
 
 typedef SbVersionNative = Pointer<Utf8> Function();
 typedef SbVersionDart = Pointer<Utf8> Function();
-
 typedef SbGoVersionNative = Pointer<Utf8> Function();
 typedef SbGoVersionDart = Pointer<Utf8> Function();
-
 typedef SbFreeStringNative = Void Function(Pointer<Utf8>);
 typedef SbFreeStringDart = void Function(Pointer<Utf8>);
-
 typedef SbInitNative = Int32 Function(
   Pointer<SbInitOptions>,
   Pointer<Pointer<Utf8>>,
@@ -48,7 +45,6 @@ typedef SbInitDart = int Function(
   Pointer<SbInitOptions>,
   Pointer<Pointer<Utf8>>,
 );
-
 typedef SbCheckConfigNative = Int32 Function(
   Pointer<Utf8>,
   Pointer<Pointer<Utf8>>,
@@ -57,7 +53,6 @@ typedef SbCheckConfigDart = int Function(
   Pointer<Utf8>,
   Pointer<Pointer<Utf8>>,
 );
-
 typedef SbStartNative = Int32 Function(
   Pointer<Utf8>,
   Pointer<Uint64>,
@@ -68,7 +63,6 @@ typedef SbStartDart = int Function(
   Pointer<Uint64>,
   Pointer<Pointer<Utf8>>,
 );
-
 typedef SbReloadNative = Int32 Function(
   Uint64,
   Pointer<Utf8>,
@@ -79,82 +73,10 @@ typedef SbReloadDart = int Function(
   Pointer<Utf8>,
   Pointer<Pointer<Utf8>>,
 );
-
 typedef SbStopNative = Int32 Function(Uint64, Pointer<Pointer<Utf8>>);
 typedef SbStopDart = int Function(int, Pointer<Pointer<Utf8>>);
-
 typedef SbFreeHandleNative = Int32 Function(Uint64);
 typedef SbFreeHandleDart = int Function(int);
-
-final class SingboxNativeSymbols {
-  const SingboxNativeSymbols._();
-
-  static const version = 'sb_version';
-  static const goVersion = 'sb_go_version';
-  static const freeString = 'sb_free_string';
-  static const init = 'sb_init';
-  static const checkConfig = 'sb_check_config';
-  static const start = 'sb_start';
-  static const reload = 'sb_reload';
-  static const stop = 'sb_stop';
-  static const freeHandle = 'sb_free_handle';
-}
-
-class SingboxRawBindings {
-  SingboxRawBindings(this.library)
-      : sbVersion = library.lookupFunction<SbVersionNative, SbVersionDart>(
-          SingboxNativeSymbols.version,
-        ),
-        sbGoVersion =
-            library.lookupFunction<SbGoVersionNative, SbGoVersionDart>(
-          SingboxNativeSymbols.goVersion,
-        ),
-        sbFreeString =
-            library.lookupFunction<SbFreeStringNative, SbFreeStringDart>(
-          SingboxNativeSymbols.freeString,
-        ),
-        sbInit = library.lookupFunction<SbInitNative, SbInitDart>(
-          SingboxNativeSymbols.init,
-        ),
-        sbCheckConfig =
-            library.lookupFunction<SbCheckConfigNative, SbCheckConfigDart>(
-          SingboxNativeSymbols.checkConfig,
-        ),
-        sbStart = library.lookupFunction<SbStartNative, SbStartDart>(
-          SingboxNativeSymbols.start,
-        ),
-        sbReload = library.lookupFunction<SbReloadNative, SbReloadDart>(
-          SingboxNativeSymbols.reload,
-        ),
-        sbStop = library.lookupFunction<SbStopNative, SbStopDart>(
-          SingboxNativeSymbols.stop,
-        ),
-        sbFreeHandle =
-            library.lookupFunction<SbFreeHandleNative, SbFreeHandleDart>(
-          SingboxNativeSymbols.freeHandle,
-        );
-
-  factory SingboxRawBindings.open([String? path]) {
-    return SingboxRawBindings(
-      DynamicLibrary.open(path ?? SingboxFfi.defaultLibraryName),
-    );
-  }
-
-  factory SingboxRawBindings.process() {
-    return SingboxRawBindings(DynamicLibrary.process());
-  }
-
-  final DynamicLibrary library;
-  final SbVersionDart sbVersion;
-  final SbGoVersionDart sbGoVersion;
-  final SbFreeStringDart sbFreeString;
-  final SbInitDart sbInit;
-  final SbCheckConfigDart sbCheckConfig;
-  final SbStartDart sbStart;
-  final SbReloadDart sbReload;
-  final SbStopDart sbStop;
-  final SbFreeHandleDart sbFreeHandle;
-}
 
 class SingboxException implements Exception {
   SingboxException(this.message);
@@ -171,7 +93,7 @@ class SingboxInitOptions {
     this.workingPath = '.',
     this.tempPath = '.',
     this.locale,
-    this.commandSecret = 'example-secret',
+    this.commandSecret = 'lithenet-secret',
     this.commandPort = 0,
     this.logMaxLines = 300,
     this.debug = false,
@@ -193,36 +115,85 @@ class SingboxInitOptions {
   final int oomMemoryLimit;
 }
 
+class SingboxRawBindings {
+  SingboxRawBindings(this.library)
+      : sbVersion =
+            library.lookupFunction<SbVersionNative, SbVersionDart>('sb_version'),
+        sbGoVersion = library
+            .lookupFunction<SbGoVersionNative, SbGoVersionDart>('sb_go_version'),
+        sbFreeString = library
+            .lookupFunction<SbFreeStringNative, SbFreeStringDart>(
+          'sb_free_string',
+        ),
+        sbInit = library.lookupFunction<SbInitNative, SbInitDart>('sb_init'),
+        sbCheckConfig = library
+            .lookupFunction<SbCheckConfigNative, SbCheckConfigDart>(
+          'sb_check_config',
+        ),
+        sbStart =
+            library.lookupFunction<SbStartNative, SbStartDart>('sb_start'),
+        sbReload =
+            library.lookupFunction<SbReloadNative, SbReloadDart>('sb_reload'),
+        sbStop = library.lookupFunction<SbStopNative, SbStopDart>('sb_stop'),
+        sbFreeHandle = library
+            .lookupFunction<SbFreeHandleNative, SbFreeHandleDart>(
+          'sb_free_handle',
+        );
+
+  factory SingboxRawBindings.open(String path) {
+    return SingboxRawBindings(DynamicLibrary.open(path));
+  }
+
+  final DynamicLibrary library;
+  final SbVersionDart sbVersion;
+  final SbGoVersionDart sbGoVersion;
+  final SbFreeStringDart sbFreeString;
+  final SbInitDart sbInit;
+  final SbCheckConfigDart sbCheckConfig;
+  final SbStartDart sbStart;
+  final SbReloadDart sbReload;
+  final SbStopDart sbStop;
+  final SbFreeHandleDart sbFreeHandle;
+}
+
 class SingboxFfi {
   SingboxFfi._(this.raw);
 
-  factory SingboxFfi.fromLibrary(DynamicLibrary library) {
-    return SingboxFfi._(SingboxRawBindings(library));
-  }
-
-  factory SingboxFfi.open([String? path]) {
+  factory SingboxFfi.open(String path) {
     return SingboxFfi._(SingboxRawBindings.open(path));
   }
 
-  factory SingboxFfi.process() {
-    return SingboxFfi._(SingboxRawBindings.process());
+  factory SingboxFfi.openDefault() {
+    return SingboxFfi.open(defaultLibraryPath());
   }
 
-  static String get defaultLibraryName {
+  static String defaultLibraryPath() {
     if (Platform.isWindows) {
-      return 'singboxffi.dll';
+      return _firstExistingPath([
+        'native/windows/singboxffi.dll',
+        '${File(Platform.resolvedExecutable).parent.path}/singboxffi.dll',
+        'singboxffi.dll',
+      ]);
     }
-    if (Platform.isMacOS || Platform.isIOS) {
-      return 'libsingboxffi.dylib';
+    if (Platform.isMacOS) {
+      return _firstExistingPath([
+        'native/macos/libsingboxffi.dylib',
+        '${File(Platform.resolvedExecutable).parent.path}/libsingboxffi.dylib',
+        'libsingboxffi.dylib',
+      ]);
     }
-    return 'libsingboxffi.so';
+    return _firstExistingPath([
+      'native/linux/libsingboxffi.so',
+      '${File(Platform.resolvedExecutable).parent.path}/libsingboxffi.so',
+      'libsingboxffi.so',
+    ]);
   }
 
   final SingboxRawBindings raw;
 
-  String version() => takeString(raw.sbVersion());
+  String version() => _takeString(raw.sbVersion());
 
-  String goVersion() => takeString(raw.sbGoVersion());
+  String goVersion() => _takeString(raw.sbGoVersion());
 
   void init([SingboxInitOptions options = const SingboxInitOptions()]) {
     final opts = calloc<SbInitOptions>();
@@ -254,7 +225,7 @@ class SingboxFfi {
 
       final code = raw.sbInit(opts, errOut);
       if (code != 0) {
-        throw SingboxException(takeError(errOut));
+        throw SingboxException(_takeError(errOut));
       }
     } finally {
       for (final pointer in allocations) {
@@ -271,7 +242,7 @@ class SingboxFfi {
     try {
       final code = raw.sbCheckConfig(config, errOut);
       if (code != 0) {
-        throw SingboxException(takeError(errOut));
+        throw SingboxException(_takeError(errOut));
       }
     } finally {
       calloc.free(config);
@@ -286,7 +257,7 @@ class SingboxFfi {
     try {
       final code = raw.sbStart(config, handleOut, errOut);
       if (code != 0) {
-        throw SingboxException(takeError(errOut));
+        throw SingboxException(_takeError(errOut));
       }
       return SingboxService._(this, handleOut.value);
     } finally {
@@ -302,7 +273,7 @@ class SingboxFfi {
     try {
       final code = raw.sbReload(handle, config, errOut);
       if (code != 0) {
-        throw SingboxException(takeError(errOut));
+        throw SingboxException(_takeError(errOut));
       }
     } finally {
       calloc.free(config);
@@ -315,7 +286,7 @@ class SingboxFfi {
     try {
       final code = raw.sbStop(handle, errOut);
       if (code != 0) {
-        throw SingboxException(takeError(errOut));
+        throw SingboxException(_takeError(errOut));
       }
     } finally {
       calloc.free(errOut);
@@ -329,30 +300,33 @@ class SingboxFfi {
     }
   }
 
-  void freeString(Pointer<Utf8> pointer) {
-    if (pointer != nullptr) {
-      raw.sbFreeString(pointer);
-    }
-  }
-
-  String takeString(Pointer<Utf8> pointer) {
+  String _takeString(Pointer<Utf8> pointer) {
     if (pointer == nullptr) {
       return '';
     }
     try {
       return pointer.toDartString();
     } finally {
-      freeString(pointer);
+      raw.sbFreeString(pointer);
     }
   }
 
-  String takeError(Pointer<Pointer<Utf8>> errOut) {
+  String _takeError(Pointer<Pointer<Utf8>> errOut) {
     final pointer = errOut.value;
     if (pointer == nullptr) {
       return 'unknown error';
     }
-    return takeString(pointer);
+    return _takeString(pointer);
   }
+}
+
+String _firstExistingPath(List<String> paths) {
+  for (final path in paths) {
+    if (File(path).existsSync()) {
+      return path;
+    }
+  }
+  return paths.first;
 }
 
 class SingboxService {
