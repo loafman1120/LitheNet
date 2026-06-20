@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../app/router.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/utils/format_bytes.dart';
+import '../../data/models/ip_info.dart';
 import '../../repositories/proxy_repository.dart';
+import 'data/ip_info_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,6 +17,15 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   ProxyRepository? _repository;
+  IpInfo? _ipInfo;
+  bool _ipLoading = false;
+  String? _ipError;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchIpInfo();
+  }
 
   @override
   void didChangeDependencies() {
@@ -33,6 +44,21 @@ class _HomePageState extends State<HomePage> {
 
   void _onStateChanged() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _fetchIpInfo() async {
+    setState(() {
+      _ipLoading = true;
+      _ipError = null;
+    });
+    try {
+      final info = await IpInfoService.instance.fetch();
+      if (mounted) setState(() => _ipInfo = info);
+    } catch (e) {
+      if (mounted) setState(() => _ipError = e.toString());
+    } finally {
+      if (mounted) setState(() => _ipLoading = false);
+    }
   }
 
   @override
@@ -58,6 +84,13 @@ class _HomePageState extends State<HomePage> {
             sliver: SliverList.list(
               children: [
                 CurrentProfileCard(repository: repo),
+                const SizedBox(height: AppSpacing.sectionGap),
+                IpInfoCard(
+                  ipInfo: _ipInfo,
+                  loading: _ipLoading,
+                  error: _ipError,
+                  onRefresh: _fetchIpInfo,
+                ),
                 const SizedBox(height: AppSpacing.sectionGap),
                 Center(child: ConnectionButton(repository: repo)),
                 const SizedBox(height: AppSpacing.sectionGap),
@@ -143,6 +176,115 @@ class CurrentProfileCard extends StatelessWidget {
               label: 'Listen',
               value: repository.listenAddress,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class IpInfoCard extends StatelessWidget {
+  const IpInfoCard({
+    required this.ipInfo,
+    required this.loading,
+    required this.error,
+    required this.onRefresh,
+    super.key,
+  });
+
+  final IpInfo? ipInfo;
+  final bool loading;
+  final String? error;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.cardPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.public,
+                  color: theme.colorScheme.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'IP Information',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 20),
+                  onPressed: loading ? null : onRefresh,
+                  tooltip: 'Refresh',
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.itemGap),
+            if (loading && ipInfo == null)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              )
+            else if (error != null && ipInfo == null)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Failed to load IP info',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ),
+              )
+            else if (ipInfo != null) ...[
+              _InfoRow(
+                icon: Icons.language,
+                label: 'IP',
+                value: ipInfo!.ip,
+              ),
+              const SizedBox(height: AppSpacing.smallGap),
+              _InfoRow(
+                icon: Icons.flag_outlined,
+                label: 'Country',
+                value: '${ipInfo!.flagEmoji} ${ipInfo!.country}',
+              ),
+              const SizedBox(height: AppSpacing.smallGap),
+              _InfoRow(
+                icon: Icons.location_city_outlined,
+                label: 'City',
+                value: ipInfo!.city,
+              ),
+              const SizedBox(height: AppSpacing.smallGap),
+              _InfoRow(
+                icon: Icons.business_outlined,
+                label: 'ISP',
+                value: ipInfo!.isp,
+              ),
+              const SizedBox(height: AppSpacing.smallGap),
+              _InfoRow(
+                icon: Icons.dns_outlined,
+                label: 'AS',
+                value: ipInfo!.asName,
+              ),
+            ],
           ],
         ),
       ),

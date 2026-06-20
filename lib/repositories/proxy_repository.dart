@@ -6,6 +6,9 @@ import 'package:flutter/widgets.dart';
 import 'package:singbox_ffi/singbox_ffi.dart';
 
 import '../data/models/log_entry.dart';
+import '../data/singbox_api/singbox_api_client.dart';
+import '../data/singbox_api/singbox_api_config.dart';
+import '../data/singbox_api/singbox_api_models.dart';
 
 class ProxyRepositoryScope extends InheritedNotifier<ProxyRepository> {
   const ProxyRepositoryScope({
@@ -35,6 +38,9 @@ abstract class ProxyRepository extends ChangeNotifier {
   String? get singboxVersion;
   String? get goVersion;
   TrafficSnapshot get traffic;
+  List<SingboxApiConnection> get connections;
+  List<SingboxApiGroup> get apiGroups;
+  List<SingboxApiGroupItem> get apiOutbounds;
   List<LogEntry> get logs;
 
   String get versionLine {
@@ -58,6 +64,11 @@ abstract class ProxyRepository extends ChangeNotifier {
   Future<void> start();
   Future<void> reload();
   Future<void> stop();
+  Future<void> selectOutbound({
+    required String groupTag,
+    required String outboundTag,
+  });
+  Future<void> urlTest(String outboundTag);
   void clearLogs();
 }
 
@@ -70,8 +81,13 @@ class SingboxProxyRepository extends ProxyRepository {
 
   SingboxFfi? _core;
   SingboxService? _service;
+  SingboxApiClient? _apiClient;
   Timer? _trafficTimer;
   StreamSubscription<SingboxLogEvent>? _logSubscription;
+  StreamSubscription<SingboxApiStatus>? _statusSubscription;
+  StreamSubscription<SingboxApiConnectionEvents>? _connectionsSubscription;
+  StreamSubscription<List<SingboxApiGroup>>? _groupsSubscription;
+  StreamSubscription<List<SingboxApiGroupItem>>? _outboundsSubscription;
   bool _busy = false;
   String _status = 'Stopped';
   String _message =
@@ -82,7 +98,13 @@ class SingboxProxyRepository extends ProxyRepository {
   String? _loadedCoreSource;
   String? _singboxVersion;
   String? _goVersion;
+  final SingboxApiEndpoint _apiEndpoint = const SingboxApiEndpoint();
+  final SingboxApiConfigInjector _apiConfigInjector =
+      const SingboxApiConfigInjector();
   TrafficSnapshot _traffic = TrafficSnapshot.zero;
+  final Map<String, SingboxApiConnection> _connections = {};
+  List<SingboxApiGroup> _apiGroups = const [];
+  List<SingboxApiGroupItem> _apiOutbounds = const [];
   final List<LogEntry> _logs = [];
 
   @override
@@ -120,6 +142,17 @@ class SingboxProxyRepository extends ProxyRepository {
 
   @override
   TrafficSnapshot get traffic => _traffic;
+
+  @override
+  List<SingboxApiConnection> get connections =>
+      List.unmodifiable(_connections.values);
+
+  @override
+  List<SingboxApiGroup> get apiGroups => List.unmodifiable(_apiGroups);
+
+  @override
+  List<SingboxApiGroupItem> get apiOutbounds =>
+      List.unmodifiable(_apiOutbounds);
 
   @override
   List<LogEntry> get logs => List.unmodifiable(_logs);
@@ -183,8 +216,8 @@ class SingboxProxyRepository extends ProxyRepository {
       _service = service;
       _status = 'Running';
       _message = 'Mixed proxy is running on $_listenAddress:$_mixedPort.';
-      _startMockTraffic();
       _startLogStream(service);
+      _startApiClient();
       _appendLog(
         LogLevel.info,
         'core',
@@ -206,6 +239,7 @@ class SingboxProxyRepository extends ProxyRepository {
       service.reload(config);
       _message = 'Config reloaded.';
       _appendLog(LogLevel.info, 'core', 'Config reloaded.');
+      _restartApiClient();
       notifyListeners();
     });
   }
@@ -217,11 +251,40 @@ class SingboxProxyRepository extends ProxyRepository {
       _service = null;
       _status = 'Stopped';
       _message = 'Proxy stopped.';
-      _stopMockTraffic();
       _stopLogStream();
+      _stopApiClient();
+      _traffic = TrafficSnapshot.zero;
+      _connections.clear();
+      _apiGroups = const [];
+      _apiOutbounds = const [];
       _appendLog(LogLevel.info, 'core', 'Proxy stopped.');
       notifyListeners();
     });
+  }
+
+  @override
+  Future<void> selectOutbound({
+    required String groupTag,
+    required String outboundTag,
+  }) async {
+    final client = _apiClient;
+    if (client == null) {
+      _appendLog(LogLevel.warning, 'api', 'API client is not connected.');
+      notifyListeners();
+      return;
+    }
+    await client.selectOutbound(groupTag: groupTag, outboundTag: outboundTag);
+  }
+
+  @override
+  Future<void> urlTest(String outboundTag) async {
+    final client = _apiClient;
+    if (client == null) {
+      _appendLog(LogLevel.warning, 'api', 'API client is not connected.');
+      notifyListeners();
+      return;
+    }
+    await client.urlTest(outboundTag);
   }
 
   @override
@@ -238,8 +301,8 @@ class SingboxProxyRepository extends ProxyRepository {
 
   @override
   void dispose() {
-    _stopMockTraffic();
     _stopLogStream();
+    _stopApiClient();
     try {
       _service?.close();
     } catch (_) {
@@ -312,7 +375,8 @@ class SingboxProxyRepository extends ProxyRepository {
 
   String _normalizedConfig() {
     final decoded = jsonDecode(_configJson);
-    return const JsonEncoder.withIndent('  ').convert(decoded);
+    final normalized = const JsonEncoder.withIndent('  ').convert(decoded);
+    return _apiConfigInjector.inject(normalized, _apiEndpoint);
   }
 
   static String _buildDirectConfig({
@@ -356,6 +420,91 @@ class SingboxProxyRepository extends ProxyRepository {
       );
       notifyListeners();
     });
+  }
+
+  void _startApiClient() {
+    _stopApiClient();
+    final client = SingboxApiClient(endpoint: _apiEndpoint);
+    _apiClient = client;
+    _statusSubscription = client.subscribeStatus().listen(
+          _handleApiStatus,
+          onError: _handleApiError,
+        );
+    _connectionsSubscription = client.subscribeConnections().listen(
+          _handleConnectionEvents,
+          onError: _handleApiError,
+        );
+    _groupsSubscription = client.subscribeGroups().listen(
+      (groups) {
+        _apiGroups = groups;
+        notifyListeners();
+      },
+      onError: _handleApiError,
+    );
+    _outboundsSubscription = client.subscribeOutbounds().listen(
+      (outbounds) {
+        _apiOutbounds = outbounds;
+        notifyListeners();
+      },
+      onError: _handleApiError,
+    );
+  }
+
+  void _restartApiClient() {
+    if (_service == null) {
+      return;
+    }
+    _startApiClient();
+  }
+
+  void _stopApiClient() {
+    _statusSubscription?.cancel();
+    _statusSubscription = null;
+    _connectionsSubscription?.cancel();
+    _connectionsSubscription = null;
+    _groupsSubscription?.cancel();
+    _groupsSubscription = null;
+    _outboundsSubscription?.cancel();
+    _outboundsSubscription = null;
+    _apiClient?.close();
+    _apiClient = null;
+    _stopMockTraffic();
+  }
+
+  void _handleApiStatus(SingboxApiStatus status) {
+    _stopMockTraffic();
+    _traffic = TrafficSnapshot(
+      uploadBytes: status.uplinkTotal,
+      downloadBytes: status.downlinkTotal,
+      activeConnections: status.connectionsIn + status.connectionsOut,
+    );
+    notifyListeners();
+  }
+
+  void _handleConnectionEvents(Object event) {
+    if (event is! SingboxApiConnectionEvents) {
+      return;
+    }
+    if (event.reset) {
+      _connections.clear();
+    }
+    for (final connectionEvent in event.events) {
+      final connection = connectionEvent.connection;
+      if (connectionEvent.type == 2 || connection == null) {
+        _connections.remove(connectionEvent.id);
+      } else {
+        _connections[connection.id] = connection;
+      }
+    }
+    notifyListeners();
+  }
+
+  void _handleApiError(Object error) {
+    _appendLog(LogLevel.warning, 'api', error.toString());
+    if (_traffic == TrafficSnapshot.zero && _trafficTimer == null) {
+      _startMockTraffic();
+    }
+    notifyListeners();
   }
 
   void _stopMockTraffic() {

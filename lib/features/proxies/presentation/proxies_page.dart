@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../repositories/proxy_repository.dart';
 import '../application/proxies_controller.dart';
 import '../application/proxy_catalog.dart';
 import 'widgets/mode_selector.dart';
@@ -29,6 +30,7 @@ class _ProxiesPageState extends State<ProxiesPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _controller.bind(ProxyCatalogScope.of(context));
+    _controller.bindRepository(ProxyRepositoryScope.of(context));
   }
 
   @override
