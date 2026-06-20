@@ -32,6 +32,8 @@ migrate_working_dir/
 # Native singbox-ffi binaries copied in for local runs.
 *.dll
 *.h
+!windows/runner/*.h
+!windows/flutter/generated_plugin_registrant.h
 *.so
 *.dylib
 *.a
