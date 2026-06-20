@@ -60,8 +60,7 @@ class SubscriptionCard extends StatelessWidget {
                                 child: Text(
                                   'Active',
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                    color:
-                                        theme.colorScheme.onPrimaryContainer,
+                                    color: theme.colorScheme.onPrimaryContainer,
                                   ),
                                 ),
                               ),

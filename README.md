@@ -21,7 +21,7 @@ windows/    Windows desktop runner
 LitheNet consumes the published `singbox_ffi` Flutter FFI plugin from pub.dev:
 
 ```yaml
-singbox_ffi: ^0.1.0
+singbox_ffi: ^0.1.2
 ```
 
 ## Native Core
@@ -62,8 +62,8 @@ flutter pub get
 flutter run -d windows
 ```
 
-The app validates a sing-box JSON config and starts/stops the local mixed proxy
-through the bundled `singbox_ffi` plugin.
+The app validates a sing-box JSON config, starts/stops the local mixed proxy,
+and streams service logs through the bundled `singbox_ffi` plugin.
 
 ## Run The Dart Smoke Proxy
 

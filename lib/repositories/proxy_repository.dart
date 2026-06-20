@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:singbox_ffi/singbox_ffi.dart';
 
+import '../data/models/log_entry.dart';
+
 class ProxyRepositoryScope extends InheritedNotifier<ProxyRepository> {
   const ProxyRepositoryScope({
     required ProxyRepository repository,
@@ -33,6 +35,7 @@ abstract class ProxyRepository extends ChangeNotifier {
   String? get singboxVersion;
   String? get goVersion;
   TrafficSnapshot get traffic;
+  List<LogEntry> get logs;
 
   String get versionLine {
     final singbox = singboxVersion;
@@ -55,6 +58,7 @@ abstract class ProxyRepository extends ChangeNotifier {
   Future<void> start();
   Future<void> reload();
   Future<void> stop();
+  void clearLogs();
 }
 
 class SingboxProxyRepository extends ProxyRepository {
@@ -67,6 +71,7 @@ class SingboxProxyRepository extends ProxyRepository {
   SingboxFfi? _core;
   SingboxService? _service;
   Timer? _trafficTimer;
+  StreamSubscription<SingboxLogEvent>? _logSubscription;
   bool _busy = false;
   String _status = 'Stopped';
   String _message =
@@ -78,6 +83,7 @@ class SingboxProxyRepository extends ProxyRepository {
   String? _singboxVersion;
   String? _goVersion;
   TrafficSnapshot _traffic = TrafficSnapshot.zero;
+  final List<LogEntry> _logs = [];
 
   @override
   bool get busy => _busy;
@@ -114,6 +120,9 @@ class SingboxProxyRepository extends ProxyRepository {
 
   @override
   TrafficSnapshot get traffic => _traffic;
+
+  @override
+  List<LogEntry> get logs => List.unmodifiable(_logs);
 
   @override
   void updateEndpoint({
@@ -175,6 +184,12 @@ class SingboxProxyRepository extends ProxyRepository {
       _status = 'Running';
       _message = 'Mixed proxy is running on $_listenAddress:$_mixedPort.';
       _startMockTraffic();
+      _startLogStream(service);
+      _appendLog(
+        LogLevel.info,
+        'core',
+        'Mixed proxy is running on $_listenAddress:$_mixedPort.',
+      );
       notifyListeners();
     });
   }
@@ -190,6 +205,7 @@ class SingboxProxyRepository extends ProxyRepository {
       _ensureCore().checkConfig(config);
       service.reload(config);
       _message = 'Config reloaded.';
+      _appendLog(LogLevel.info, 'core', 'Config reloaded.');
       notifyListeners();
     });
   }
@@ -202,13 +218,28 @@ class SingboxProxyRepository extends ProxyRepository {
       _status = 'Stopped';
       _message = 'Proxy stopped.';
       _stopMockTraffic();
+      _stopLogStream();
+      _appendLog(LogLevel.info, 'core', 'Proxy stopped.');
       notifyListeners();
     });
   }
 
   @override
+  void clearLogs() {
+    _logs.clear();
+    try {
+      _service?.clearLogs();
+    } catch (error) {
+      _appendLog(
+          LogLevel.warning, 'core', 'Failed to clear native logs: $error');
+    }
+    notifyListeners();
+  }
+
+  @override
   void dispose() {
     _stopMockTraffic();
+    _stopLogStream();
     try {
       _service?.close();
     } catch (_) {
@@ -247,6 +278,7 @@ class SingboxProxyRepository extends ProxyRepository {
         workingPath: appDir.path,
         tempPath: tempDir.path,
         commandSecret: 'lithenet-local',
+        logMaxLines: 1000,
         oomKillerDisabled: true,
       ),
     );
@@ -270,6 +302,7 @@ class SingboxProxyRepository extends ProxyRepository {
       action();
     } catch (error) {
       _message = error.toString();
+      _appendLog(LogLevel.error, 'core', error.toString());
       notifyListeners();
     } finally {
       _busy = false;
@@ -329,6 +362,70 @@ class SingboxProxyRepository extends ProxyRepository {
     _trafficTimer?.cancel();
     _trafficTimer = null;
     _traffic = _traffic.copyWith(activeConnections: 0);
+  }
+
+  void _startLogStream(SingboxService service) {
+    _stopLogStream();
+    _logSubscription = service
+        .logs(
+      interval: const Duration(milliseconds: 300),
+      batchSize: 100,
+    )
+        .listen(
+      _handleCoreLogEvent,
+      onError: (Object error) {
+        _appendLog(LogLevel.error, 'core', error.toString());
+        notifyListeners();
+      },
+    );
+  }
+
+  void _stopLogStream() {
+    _logSubscription?.cancel();
+    _logSubscription = null;
+  }
+
+  void _handleCoreLogEvent(SingboxLogEvent event) {
+    if (event.isReset) {
+      _logs.clear();
+      notifyListeners();
+      return;
+    }
+    _appendLog(_mapLogLevel(event), 'core', event.message);
+    notifyListeners();
+  }
+
+  void _appendLog(LogLevel level, String source, String message) {
+    _logs.add(
+      LogEntry(
+        time: DateTime.now(),
+        level: level,
+        source: source,
+        message: message,
+      ),
+    );
+    if (_logs.length > 2000) {
+      _logs.removeRange(0, _logs.length - 2000);
+    }
+  }
+
+  LogLevel _mapLogLevel(SingboxLogEvent event) {
+    final level = event.levelName.toLowerCase();
+    if (level.contains('error') ||
+        level.contains('fatal') ||
+        event.level >= 4) {
+      return LogLevel.error;
+    }
+    if (level.contains('warn') || event.level == 3) {
+      return LogLevel.warning;
+    }
+    if (level.contains('debug') || event.level == 1) {
+      return LogLevel.debug;
+    }
+    if (level.contains('trace') || event.level <= 0) {
+      return LogLevel.trace;
+    }
+    return LogLevel.info;
   }
 }
 

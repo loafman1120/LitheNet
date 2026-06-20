@@ -65,8 +65,7 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
                       child: SubscriptionCard(
                         subscription: sub,
                         onTap: () {},
-                        onMenuSelected: (action) =>
-                            _handleMenu(action, sub.id),
+                        onMenuSelected: (action) => _handleMenu(action, sub.id),
                       ),
                     );
                   },

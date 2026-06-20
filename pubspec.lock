@@ -164,10 +164,10 @@ packages:
     dependency: "direct main"
     description:
       name: singbox_ffi
-      sha256: "3c7ad686b0eee5abaaf4aa27eafeb31405d01b266e989b15e08aa9cfc2a8cf6e"
+      sha256: d3faf63d6e8396d5e6ed4f3a978dc0d61c200132c9178678e415f5fd19d9a152
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.1.2"
   sky_engine:
     dependency: transitive
     description: flutter

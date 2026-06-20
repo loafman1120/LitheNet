@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/widgets/empty_state.dart';
+import '../../../repositories/proxy_repository.dart';
 import '../application/logs_controller.dart';
 import 'widgets/log_line_tile.dart';
 import 'widgets/log_toolbar.dart';
@@ -20,12 +21,17 @@ class _LogsPageState extends State<LogsPage> {
   @override
   void initState() {
     super.initState();
-    _controller = LogsController()..startDemoLogs();
+    _controller = LogsController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.bind(ProxyRepositoryScope.of(context));
   }
 
   @override
   void dispose() {
-    _controller.stopDemoLogs();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../../../data/models/log_entry.dart';
+import '../../../repositories/proxy_repository.dart';
 
 class LogsController extends ChangeNotifier {
   final List<LogEntry> _entries = [];
@@ -11,6 +12,7 @@ class LogsController extends ChangeNotifier {
   bool _paused = false;
   Timer? _demoTimer;
   int _demoCounter = 0;
+  ProxyRepository? _repository;
 
   List<LogEntry> get entries => List.unmodifiable(_entries);
   LogLevel? get levelFilter => _levelFilter;
@@ -48,10 +50,18 @@ class LogsController extends ChangeNotifier {
 
   void togglePause() {
     _paused = !_paused;
+    if (!_paused) {
+      _syncFromRepository();
+    }
     notifyListeners();
   }
 
   void clear() {
+    final repository = _repository;
+    if (repository != null) {
+      repository.clearLogs();
+      return;
+    }
     _entries.clear();
     notifyListeners();
   }
@@ -64,6 +74,15 @@ class LogsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void bind(ProxyRepository repository) {
+    if (_repository == repository) {
+      return;
+    }
+    _repository?.removeListener(_syncFromRepository);
+    _repository = repository..addListener(_syncFromRepository);
+    _syncFromRepository();
+  }
+
   String exportLogs({bool sanitize = false}) {
     final buffer = StringBuffer();
     for (final entry in filteredEntries) {
@@ -71,7 +90,8 @@ class LogsController extends ChangeNotifier {
       if (sanitize) {
         msg = _sanitize(msg);
       }
-      buffer.writeln('${entry.timeString} [${entry.level.label}] ${entry.source} $msg');
+      buffer.writeln(
+          '${entry.timeString} [${entry.level.label}] ${entry.source} $msg');
     }
     return buffer.toString();
   }
@@ -79,10 +99,10 @@ class LogsController extends ChangeNotifier {
   String _sanitize(String text) {
     return text
         .replaceAllMapped(RegExp(r'https?://[^\s]+'), (m) => '[URL]')
-        .replaceAllMapped(RegExp(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b'),
-            (m) => '[IP]')
         .replaceAllMapped(
-            RegExp(r'token=[^\s&]+', caseSensitive: false), (m) => 'token=[HIDDEN]');
+            RegExp(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b'), (m) => '[IP]')
+        .replaceAllMapped(RegExp(r'token=[^\s&]+', caseSensitive: false),
+            (m) => 'token=[HIDDEN]');
   }
 
   void startDemoLogs() {
@@ -118,7 +138,22 @@ class LogsController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _repository?.removeListener(_syncFromRepository);
     stopDemoLogs();
     super.dispose();
+  }
+
+  void _syncFromRepository() {
+    if (_paused) {
+      return;
+    }
+    final repository = _repository;
+    if (repository == null) {
+      return;
+    }
+    _entries
+      ..clear()
+      ..addAll(repository.logs);
+    notifyListeners();
   }
 }

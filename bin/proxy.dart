@@ -47,6 +47,12 @@ Future<void> main(List<String> args) async {
   print('try: curl.exe -x socks5h://$_listen:$_port https://example.com');
   print('press Ctrl+C to stop');
 
+  final logs = service.logs().listen((event) {
+    if (event.isMessage) {
+      print('[${event.levelName}] ${event.message}');
+    }
+  });
+
   final stop = Completer<void>();
   late final StreamSubscription<ProcessSignal> sigint;
   sigint = ProcessSignal.sigint.watch().listen((_) {
@@ -68,6 +74,7 @@ Future<void> main(List<String> args) async {
     await stop.future;
   }
 
+  await logs.cancel();
   await sigint.cancel();
   service.close();
   print('stopped');

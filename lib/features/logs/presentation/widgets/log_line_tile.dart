@@ -59,7 +59,8 @@ class LogLineTile extends StatelessWidget {
       LogLevel.warning => const Color(0xffd97706),
       LogLevel.info => theme.colorScheme.primary,
       LogLevel.debug => theme.colorScheme.onSurfaceVariant,
-      LogLevel.trace => theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+      LogLevel.trace =>
+        theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
     };
   }
 }

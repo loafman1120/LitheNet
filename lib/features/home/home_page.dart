@@ -122,7 +122,9 @@ class CurrentProfileCard extends StatelessWidget {
                   child: Text(
                     repository.status,
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: repository.running ? Colors.green.shade700 : Colors.grey.shade700,
+                      color: repository.running
+                          ? Colors.green.shade700
+                          : Colors.grey.shade700,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -170,9 +172,8 @@ class ConnectionButton extends StatelessWidget {
                 : repository.start,
         style: FilledButton.styleFrom(
           shape: const CircleBorder(),
-          backgroundColor: running
-              ? theme.colorScheme.error
-              : theme.colorScheme.primary,
+          backgroundColor:
+              running ? theme.colorScheme.error : theme.colorScheme.primary,
           disabledBackgroundColor:
               theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.12),
         ),
