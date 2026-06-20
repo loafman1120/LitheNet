@@ -1,26 +1,32 @@
-name: Flutter
+name: CI
 
 on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
   pull_request:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.1.0, leave empty for debug only)"
+        required: false
 
 permissions:
   actions: read
-  contents: read
+  contents: write
 
 concurrency:
-  group: flutter-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   SINGBOX_FFI_REPO: loafman1120/singbox-ffi
 
 jobs:
-  desktop:
-    name: ${{ matrix.name }} Flutter
+  build:
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
     strategy:
@@ -30,18 +36,12 @@ jobs:
           - name: Windows
             os: windows-2025
             platform: windows
-            artifact: lithenet-windows-debug
-            upload_path: LitheNet/build/windows/x64/runner/Debug/**
           - name: Linux
             os: ubuntu-latest
             platform: linux
-            artifact: lithenet-linux-debug
-            upload_path: LitheNet/build/linux/x64/debug/bundle/**
           - name: macOS
             os: macos-latest
             platform: macos
-            artifact: lithenet-macos-debug
-            upload_path: LitheNet/build/macos/Build/Products/Debug/lithenet.app/**
 
     steps:
       - name: Checkout LitheNet
@@ -84,22 +84,95 @@ jobs:
         working-directory: LitheNet
         run: flutter test
 
-      - name: Build ${{ matrix.name }} debug
+      # ---------- Debug build (push to main / PR) ----------
+      - name: Build debug
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && !(github.event_name == 'workflow_dispatch' && inputs.tag != '') }}
         working-directory: LitheNet
         run: flutter build ${{ matrix.platform }} --debug
 
-      - name: Upload LitheNet ${{ matrix.name }} app
+      - name: Upload debug artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && !(github.event_name == 'workflow_dispatch' && inputs.tag != '') }}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
+          name: lithenet-${{ matrix.platform }}-debug
           path: |
-            ${{ matrix.upload_path }}
+            ${{ matrix.platform == 'windows' && 'LitheNet/build/windows/x64/runner/Debug/**' || '' }}
+            ${{ matrix.platform == 'linux' && 'LitheNet/build/linux/x64/debug/bundle/**' || '' }}
+            ${{ matrix.platform == 'macos' && 'LitheNet/build/macos/Build/Products/Debug/lithenet.app/**' || '' }}
           if-no-files-found: error
 
-      - name: Upload downloaded singbox-ffi ${{ matrix.name }} core
+      # ---------- Release build (tag push / manual with tag) ----------
+      - name: Build release
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.tag != '') }}
+        working-directory: LitheNet
+        run: flutter build ${{ matrix.platform }} --release
+
+      - name: Package Windows
+        if: ${{ matrix.platform == 'windows' && (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.tag != '')) }}
+        shell: pwsh
+        working-directory: LitheNet
+        run: |
+          $src = "build/windows/x64/runner/Release"
+          $dst = "LitheNet-windows-x64"
+          Copy-Item -Path $src -Destination "../$dst" -Recurse
+          Compress-Archive -Path "../$dst" -DestinationPath "../$dst.zip"
+          Remove-Item -Path "../$dst" -Recurse -Force
+
+      - name: Package Linux
+        if: ${{ matrix.platform == 'linux' && (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.tag != '')) }}
+        working-directory: LitheNet
+        run: |
+          cd build/linux/x64/release/bundle
+          tar -czf ../../../LitheNet-linux-x64.tar.gz *
+
+      - name: Package macOS
+        if: ${{ matrix.platform == 'macos' && (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.tag != '')) }}
+        working-directory: LitheNet
+        run: |
+          cd build/macos/Build/Products/Release
+          ditto -c -k --sequesterRsrc --keepParent lithenet.app ../../../LitheNet-macos-universal.zip
+
+      - name: Upload release artifact
+        if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.tag != '') }}
         uses: actions/upload-artifact@v4
         with:
-          name: lithenet-singboxffi-${{ matrix.platform }}-core
+          name: LitheNet-${{ matrix.platform }}-release
           path: |
-            LitheNet/native/singboxffi/**
+            ${{ matrix.platform == 'windows' && 'LitheNet/LitheNet-windows-x64.zip' || '' }}
+            ${{ matrix.platform == 'linux' && 'LitheNet/build/linux/x64/release/LitheNet-linux-x64.tar.gz' || '' }}
+            ${{ matrix.platform == 'macos' && 'LitheNet/build/macos/Build/Products/Release/LitheNet-macos-universal.zip' || '' }}
           if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    if: ${{ startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.tag != '') }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: LitheNet-*-release
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: LitheNet ${{ steps.tag.outputs.tag }}
+          generate_release_notes: true
+          files: |
+            artifacts/LitheNet-windows-release/LitheNet-windows-x64.zip
+            artifacts/LitheNet-linux-release/LitheNet-linux-x64.tar.gz
+            artifacts/LitheNet-macos-release/LitheNet-macos-universal.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
