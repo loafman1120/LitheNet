@@ -2,10 +2,10 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/home/home_page.dart';
-import '../features/placeholders/logs_page.dart';
-import '../features/placeholders/profiles_page.dart';
-import '../features/placeholders/rules_page.dart';
-import '../features/placeholders/settings_page.dart';
+import '../features/logs/presentation/logs_page.dart';
+import '../features/proxies/presentation/proxies_page.dart';
+import '../features/settings/presentation/settings_page.dart';
+import '../features/subscriptions/presentation/subscriptions_page.dart';
 import 'shell/app_shell.dart';
 
 class AppRouter {
@@ -25,12 +25,12 @@ class AppRouter {
             pageBuilder: _fadePageBuilder(const HomePage()),
           ),
           GoRoute(
-            path: AppRoute.profiles.path,
-            pageBuilder: _fadePageBuilder(const ProfilesPage()),
+            path: AppRoute.proxies.path,
+            pageBuilder: _fadePageBuilder(const ProxiesPage()),
           ),
           GoRoute(
-            path: AppRoute.rules.path,
-            pageBuilder: _fadePageBuilder(const RulesPage()),
+            path: AppRoute.subscriptions.path,
+            pageBuilder: _fadePageBuilder(const SubscriptionsPage()),
           ),
           GoRoute(
             path: AppRoute.logs.path,
@@ -57,8 +57,8 @@ class AppRouter {
 
 enum AppRoute {
   home('/'),
-  profiles('/profiles'),
-  rules('/rules'),
+  proxies('/proxies'),
+  subscriptions('/subscriptions'),
   logs('/logs'),
   settings('/settings');
 

@@ -51,19 +51,19 @@ class AdaptiveScaffold extends StatelessWidget {
 
   static const _destinations = [
     NavigationDestination(
-      icon: Icon(Icons.dashboard_outlined),
-      selectedIcon: Icon(Icons.dashboard),
+      icon: Icon(Icons.home_outlined),
+      selectedIcon: Icon(Icons.home),
       label: 'Home',
     ),
     NavigationDestination(
-      icon: Icon(Icons.account_tree_outlined),
-      selectedIcon: Icon(Icons.account_tree),
-      label: 'Profiles',
+      icon: Icon(Icons.hub_outlined),
+      selectedIcon: Icon(Icons.hub),
+      label: 'Proxies',
     ),
     NavigationDestination(
-      icon: Icon(Icons.rule_outlined),
-      selectedIcon: Icon(Icons.rule),
-      label: 'Rules',
+      icon: Icon(Icons.rss_feed_outlined),
+      selectedIcon: Icon(Icons.rss_feed),
+      label: 'Subs',
     ),
     NavigationDestination(
       icon: Icon(Icons.receipt_long_outlined),

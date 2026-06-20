@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/utils/format_bytes.dart';
 import '../../repositories/proxy_repository.dart';
 
 class HomePage extends StatefulWidget {
@@ -12,512 +14,341 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late final TextEditingController _listenController;
-  late final TextEditingController _portController;
-  late final TextEditingController _configController;
   ProxyRepository? _repository;
-
-  @override
-  void initState() {
-    super.initState();
-    _listenController = TextEditingController();
-    _portController = TextEditingController();
-    _configController = TextEditingController();
-  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final nextRepository = ProxyRepositoryScope.of(context);
-    if (_repository == nextRepository) {
-      return;
-    }
-    _repository?.removeListener(_syncControllers);
-    _repository = nextRepository..addListener(_syncControllers);
-    _syncControllers();
+    final next = ProxyRepositoryScope.of(context);
+    if (_repository == next) return;
+    _repository?.removeListener(_onStateChanged);
+    _repository = next..addListener(_onStateChanged);
   }
 
   @override
   void dispose() {
-    _repository?.removeListener(_syncControllers);
-    _listenController.dispose();
-    _portController.dispose();
-    _configController.dispose();
+    _repository?.removeListener(_onStateChanged);
     super.dispose();
   }
 
+  void _onStateChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
-    final repository = ProxyRepositoryScope.of(context);
+    final repo = ProxyRepositoryScope.of(context);
 
-    return AnimatedBuilder(
-      animation: repository,
-      builder: (context, _) {
-        return SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(child: _HomeHeader(repository: repository)),
-              SliverPadding(
-                padding: const EdgeInsets.all(16),
-                sliver: SliverLayoutBuilder(
-                  builder: (context, constraints) {
-                    final wide = constraints.crossAxisExtent >= 980;
-                    if (wide) {
-                      return SliverToBoxAdapter(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                              width: 360,
-                              child: _buildLeftColumn(repository),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildRightColumn(repository)),
-                          ],
-                        ),
-                      );
-                    }
-
-                    return SliverList.list(
-                      children: [
-                        _buildLeftColumn(repository),
-                        const SizedBox(height: 16),
-                        _buildRightColumn(repository),
-                      ],
-                    );
-                  },
-                ),
+    return SafeArea(
+      child: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            sliver: SliverToBoxAdapter(
+              child: Text(
+                'LitheNet',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
               ),
-            ],
+            ),
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildLeftColumn(ProxyRepository repository) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        CurrentConfigCard(
-          repository: repository,
-          listenController: _listenController,
-          portController: _portController,
-        ),
-        const SizedBox(height: 16),
-        ConnectionCard(repository: repository),
-        const SizedBox(height: 16),
-        TrafficStatsCard(snapshot: repository.traffic),
-      ],
-    );
-  }
-
-  Widget _buildRightColumn(ProxyRepository repository) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        QuickActionsCard(
-          repository: repository,
-          onOpenLogs: () => context.go(AppRoute.logs.path),
-        ),
-        const SizedBox(height: 16),
-        ConfigEditorCard(
-          controller: _configController,
-          enabled: !repository.busy,
-          onChanged: repository.updateConfig,
-        ),
-      ],
-    );
-  }
-
-  void _syncControllers() {
-    final repository = _repository;
-    if (repository == null) {
-      return;
-    }
-    _setTextIfNeeded(_listenController, repository.listenAddress);
-    _setTextIfNeeded(_portController, repository.mixedPort.toString());
-    _setTextIfNeeded(_configController, repository.configJson);
-  }
-
-  void _setTextIfNeeded(TextEditingController controller, String text) {
-    if (controller.text == text) {
-      return;
-    }
-    controller.value = controller.value.copyWith(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-      composing: TextRange.empty,
-    );
-  }
-}
-
-class _HomeHeader extends StatelessWidget {
-  const _HomeHeader({required this.repository});
-
-  final ProxyRepository repository;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+          SliverPadding(
+            padding: const EdgeInsets.all(16),
+            sliver: SliverList.list(
               children: [
-                Text(
-                  'LitheNet',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  repository.versionLine,
-                  style: theme.textTheme.bodyMedium,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                CurrentProfileCard(repository: repo),
+                const SizedBox(height: AppSpacing.sectionGap),
+                Center(child: ConnectionButton(repository: repo)),
+                const SizedBox(height: AppSpacing.sectionGap),
+                TrafficStatsCard(snapshot: repo.traffic),
+                const SizedBox(height: AppSpacing.sectionGap),
+                QuickActionsGrid(repository: repo),
+                if (repo.message.isNotEmpty &&
+                    !repo.running &&
+                    repo.status == 'Stopped') ...[
+                  const SizedBox(height: AppSpacing.sectionGap),
+                  ConnectionErrorBanner(message: repo.message),
+                ],
               ],
             ),
           ),
-          StatusChip(repository: repository),
         ],
       ),
     );
   }
 }
 
-class CurrentConfigCard extends StatelessWidget {
-  const CurrentConfigCard({
-    required this.repository,
-    required this.listenController,
-    required this.portController,
-    super.key,
-  });
+class CurrentProfileCard extends StatelessWidget {
+  const CurrentProfileCard({required this.repository, super.key});
 
   final ProxyRepository repository;
-  final TextEditingController listenController;
-  final TextEditingController portController;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: 'Current Config',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _InfoRow(
-            label: 'Core',
-            value: repository.coreLoaded ? 'Loaded' : 'Bundled plugin',
-          ),
-          const SizedBox(height: 8),
-          _InfoRow(
-            label: 'Mode',
-            value: 'Mixed proxy -> direct outbound',
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: listenController,
-            enabled: !repository.running && !repository.busy,
-            decoration: const InputDecoration(labelText: 'Listen address'),
-            onSubmitted: (_) => _updateEndpoint(),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: portController,
-            enabled: !repository.running && !repository.busy,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Mixed port'),
-            onSubmitted: (_) => _updateEndpoint(),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed:
-                repository.running || repository.busy ? null : _updateEndpoint,
-            icon: const Icon(Icons.save_outlined),
-            label: const Text('Apply Endpoint'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _updateEndpoint() {
-    repository.updateEndpoint(
-      listenAddress: listenController.text,
-      mixedPort: int.tryParse(portController.text.trim()) ?? 2080,
-    );
-  }
-}
-
-class ConnectionCard extends StatelessWidget {
-  const ConnectionCard({
-    required this.repository,
-    super.key,
-  });
-
-  final ProxyRepository repository;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return _SectionCard(
-      title: 'Connection',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          FilledButton.icon(
-            onPressed: repository.busy
-                ? null
-                : repository.running
-                    ? repository.stop
-                    : repository.start,
-            icon: Icon(repository.running ? Icons.stop : Icons.play_arrow),
-            label: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Text(repository.running ? 'Disconnect' : 'Connect'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SelectableText(
-            repository.message,
-            style: theme.textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class TrafficStatsCard extends StatelessWidget {
-  const TrafficStatsCard({
-    required this.snapshot,
-    super.key,
-  });
-
-  final TrafficSnapshot snapshot;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: 'Traffic Stats',
-      child: Row(
-        children: [
-          Expanded(
-            child: _Metric(
-              label: 'Upload',
-              value: _formatBytes(snapshot.uploadBytes),
-              icon: Icons.upload,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _Metric(
-              label: 'Download',
-              value: _formatBytes(snapshot.downloadBytes),
-              icon: Icons.download,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _Metric(
-              label: 'Active',
-              value: snapshot.activeConnections.toString(),
-              icon: Icons.hub_outlined,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes >= 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-    }
-    if (bytes >= 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    if (bytes >= 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    }
-    return '$bytes B';
-  }
-}
-
-class QuickActionsCard extends StatelessWidget {
-  const QuickActionsCard({
-    required this.repository,
-    required this.onOpenLogs,
-    super.key,
-  });
-
-  final ProxyRepository repository;
-  final VoidCallback onOpenLogs;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: 'Quick Actions',
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          _ActionButton(
-            icon: Icons.memory,
-            label: 'Load Core',
-            onPressed:
-                repository.busy || repository.running || repository.coreLoaded
-                    ? null
-                    : repository.loadCore,
-          ),
-          _ActionButton(
-            icon: Icons.fact_check_outlined,
-            label: 'Validate',
-            onPressed: repository.busy ? null : repository.validateConfig,
-          ),
-          _ActionButton(
-            icon: Icons.refresh,
-            label: 'Direct Config',
-            onPressed: repository.busy || repository.running
-                ? null
-                : repository.resetDirectConfig,
-          ),
-          _ActionButton(
-            icon: Icons.sync,
-            label: 'Reload',
-            onPressed: repository.busy || !repository.running
-                ? null
-                : repository.reload,
-          ),
-          _ActionButton(
-            icon: Icons.receipt_long_outlined,
-            label: 'View Logs',
-            onPressed: onOpenLogs,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class ConfigEditorCard extends StatelessWidget {
-  const ConfigEditorCard({
-    required this.controller,
-    required this.enabled,
-    required this.onChanged,
-    super.key,
-  });
-
-  final TextEditingController controller;
-  final bool enabled;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return _SectionCard(
-      title: 'sing-box Config',
-      child: SizedBox(
-        height: 420,
-        child: TextField(
-          controller: controller,
-          enabled: enabled,
-          expands: true,
-          maxLines: null,
-          minLines: null,
-          textAlignVertical: TextAlignVertical.top,
-          style: const TextStyle(
-            fontFamily: 'Consolas',
-            fontSize: 13,
-            height: 1.35,
-          ),
-          decoration: const InputDecoration(
-            alignLabelWithHint: true,
-            labelText: 'JSON',
-          ),
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
-}
-
-class StatusChip extends StatelessWidget {
-  const StatusChip({
-    required this.repository,
-    super.key,
-  });
-
-  final ProxyRepository repository;
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColor =
-        repository.running ? Colors.green.shade700 : Colors.grey.shade700;
-
-    return Chip(
-      avatar: Icon(
-        repository.running
-            ? Icons.radio_button_checked
-            : Icons.radio_button_off,
-        color: statusColor,
-        size: 18,
-      ),
-      label: Text(repository.status),
-      side: BorderSide(color: statusColor.withValues(alpha: 0.35)),
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    required this.child,
-  });
-
-  final String title;
-  final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Card(
-      clipBehavior: Clip.antiAlias,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.outlineVariant),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.cardPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.rss_feed,
+                  color: theme.colorScheme.primary,
+                  size: 20,
                 ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    repository.running ? 'Connected' : 'No active profile',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: repository.running
+                        ? Colors.green.withValues(alpha: 0.12)
+                        : Colors.grey.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    repository.status,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: repository.running ? Colors.green.shade700 : Colors.grey.shade700,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.itemGap),
+            _InfoRow(
+              icon: Icons.speed,
+              label: 'Port',
+              value: '${repository.mixedPort}',
+            ),
+            const SizedBox(height: AppSpacing.smallGap),
+            _InfoRow(
+              icon: Icons.place_outlined,
+              label: 'Listen',
+              value: repository.listenAddress,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ConnectionButton extends StatelessWidget {
+  const ConnectionButton({required this.repository, super.key});
+
+  final ProxyRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final running = repository.running;
+    final busy = repository.busy;
+
+    return SizedBox(
+      width: 200,
+      height: 200,
+      child: FilledButton(
+        onPressed: busy
+            ? null
+            : running
+                ? repository.stop
+                : repository.start,
+        style: FilledButton.styleFrom(
+          shape: const CircleBorder(),
+          backgroundColor: running
+              ? theme.colorScheme.error
+              : theme.colorScheme.primary,
+          disabledBackgroundColor:
+              theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (busy)
+              const SizedBox(
+                width: 32,
+                height: 32,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: Colors.white,
+                ),
+              )
+            else
+              Icon(
+                running ? Icons.stop : Icons.power_settings_new,
+                size: 48,
+                color: busy ? theme.colorScheme.onSurfaceVariant : Colors.white,
               ),
-              const SizedBox(height: 12),
-              child,
-            ],
+            const SizedBox(height: 8),
+            Text(
+              busy
+                  ? 'Please wait'
+                  : running
+                      ? 'Disconnect'
+                      : 'Connect',
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: busy ? theme.colorScheme.onSurfaceVariant : Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TrafficStatsCard extends StatelessWidget {
+  const TrafficStatsCard({required this.snapshot, super.key});
+
+  final dynamic snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.cardPadding),
+        child: Row(
+          children: [
+            Expanded(
+              child: _StatItem(
+                icon: Icons.arrow_upward,
+                label: 'Upload',
+                value: formatSpeed(snapshot.uploadBytes),
+                color: const Color(0xff7c3aed),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.itemGap),
+            Expanded(
+              child: _StatItem(
+                icon: Icons.arrow_downward,
+                label: 'Download',
+                value: formatSpeed(snapshot.downloadBytes),
+                color: const Color(0xff2563eb),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class QuickActionsGrid extends StatelessWidget {
+  const QuickActionsGrid({required this.repository, super.key});
+
+  final ProxyRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.cardPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Quick Actions',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.itemGap),
+            Row(
+              children: [
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.speed,
+                    label: 'Test Latency',
+                    onTap: () {},
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.smallGap),
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.hub,
+                    label: 'Change Node',
+                    onTap: () => context.go(AppRoute.proxies.path),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.smallGap),
+            Row(
+              children: [
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.sync,
+                    label: 'Update Sub',
+                    onTap: () => context.go(AppRoute.subscriptions.path),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.smallGap),
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.receipt_long_outlined,
+                    label: 'View Logs',
+                    onTap: () => context.go(AppRoute.logs.path),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ConnectionErrorBanner extends StatelessWidget {
+  const ConnectionErrorBanner({required this.message, super.key});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      color: theme.colorScheme.errorContainer,
+      child: ListTile(
+        leading: Icon(
+          Icons.error_outline,
+          color: theme.colorScheme.onErrorContainer,
+        ),
+        title: Text(
+          'Connection Error',
+          style: TextStyle(
+            color: theme.colorScheme.onErrorContainer,
+            fontWeight: FontWeight.w600,
           ),
         ),
+        subtitle: Text(
+          message,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: theme.colorScheme.onErrorContainer),
+        ),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: theme.colorScheme.onErrorContainer,
+        ),
+        onTap: () => context.go(AppRoute.logs.path),
       ),
     );
   }
@@ -525,10 +356,12 @@ class _SectionCard extends StatelessWidget {
 
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
+    required this.icon,
     required this.label,
     required this.value,
   });
 
+  final IconData icon;
   final String label;
   final String value;
 
@@ -538,16 +371,19 @@ class _InfoRow extends StatelessWidget {
 
     return Row(
       children: [
-        SizedBox(
-          width: 76,
-          child: Text(label, style: theme.textTheme.bodySmall),
+        Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
-        Expanded(
-          child: Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+        const Spacer(),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -555,64 +391,84 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _Metric extends StatelessWidget {
-  const _Metric({
+class _StatItem extends StatelessWidget {
+  const _StatItem({
+    required this.icon,
     required this.label,
     required this.value,
-    required this.icon,
+    required this.color,
   });
 
+  final IconData icon;
   final String label;
   final String value;
-  final IconData icon;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return DecoratedBox(
+    return Container(
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 18),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: color,
             ),
-            Text(label, style: theme.textTheme.bodySmall),
-          ],
-        ),
+          ),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
     required this.icon,
     required this.label,
-    required this.onPressed,
+    required this.onTap,
   });
 
   final IconData icon;
   final String label;
-  final VoidCallback? onPressed;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon),
-      label: Text(label),
+    final theme = Theme.of(context);
+
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall,
+          ),
+        ],
+      ),
     );
   }
 }
