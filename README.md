@@ -13,6 +13,8 @@ while this Flutter project imports that package's Flutter FFI plugin API.
 lib/        Flutter UI
 bin/        Dart smoke runners for the same FFI API
 test/       Flutter widget tests
+linux/      Linux desktop runner
+macos/      macOS desktop runner
 windows/    Windows desktop runner
 ```
 
@@ -56,6 +58,7 @@ The LitheNet workflow stages the Windows DLL into the resolved pub cache copy of
 
 ```powershell
 flutter pub get
+.\scripts\download_core_desktop.ps1
 flutter run -d windows
 ```
 
@@ -82,6 +85,7 @@ Press `Ctrl+C` in the Dart process to stop the proxy.
 ```powershell
 flutter analyze
 flutter test
+.\scripts\download_core_desktop.ps1
 flutter build windows --debug
 ```
 
