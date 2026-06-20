@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../application/proxies_controller.dart';
+import '../application/proxy_catalog.dart';
 import 'widgets/mode_selector.dart';
 import 'widgets/proxy_group_tabs.dart';
 import 'widgets/proxy_node_detail_sheet.dart';
@@ -21,7 +22,13 @@ class _ProxiesPageState extends State<ProxiesPage> {
   @override
   void initState() {
     super.initState();
-    _controller = ProxiesController()..loadDemoGroups();
+    _controller = ProxiesController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.bind(ProxyCatalogScope.of(context));
   }
 
   @override

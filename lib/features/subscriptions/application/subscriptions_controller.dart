@@ -3,10 +3,18 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 
 import '../../../data/models/subscription.dart';
+import '../../proxies/application/proxy_catalog.dart';
+import '../data/subscriptions_repository.dart';
 
 class SubscriptionsController extends ChangeNotifier {
+  SubscriptionsController({
+    SubscriptionRepository? repository,
+  }) : _repository = repository ?? DefaultSubscriptionRepository();
+
+  final SubscriptionRepository _repository;
+  ProxyCatalog? _proxyCatalog;
   List<Subscription> _subscriptions = [];
-  final bool _busy = false;
+  bool _busy = false;
 
   List<Subscription> get subscriptions => List.unmodifiable(_subscriptions);
   bool get busy => _busy;
@@ -19,16 +27,20 @@ class SubscriptionsController extends ChangeNotifier {
     }
   }
 
-  void addSubscription(String url, {String? name}) {
+  void bindProxyCatalog(ProxyCatalog catalog) {
+    _proxyCatalog = catalog;
+  }
+
+  Future<void> addSubscription(String url, {String? name}) async {
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final sub = Subscription(
       id: id,
       name: name ?? 'Subscription ${_subscriptions.length + 1}',
       url: url,
-      lastUpdatedAt: DateTime.now(),
     );
     _subscriptions.add(sub);
     notifyListeners();
+    await updateSubscription(id);
   }
 
   void removeSubscription(String id) {
@@ -50,11 +62,29 @@ class SubscriptionsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateSubscription(String id) {
+  Future<void> updateSubscription(String id) async {
     final index = _subscriptions.indexWhere((s) => s.id == id);
     if (index < 0) return;
+    _busy = true;
     _subscriptions[index] = _subscriptions[index].copyWith(
-      lastUpdatedAt: DateTime.now(),
+      updateStatus: SubscriptionUpdateStatus.updating,
+      lastError: '',
+    );
+    notifyListeners();
+
+    final result = await _repository.updateOne(_subscriptions[index]);
+    final currentIndex =
+        _subscriptions.indexWhere((s) => s.id == result.subscription.id);
+    if (currentIndex >= 0) {
+      _subscriptions[currentIndex] = result.subscription;
+    }
+    final profile = result.profile;
+    if (profile != null && result.profileChanged) {
+      _proxyCatalog?.replaceFromProfile(profile);
+    }
+    _busy = _subscriptions.any(
+      (subscription) =>
+          subscription.updateStatus == SubscriptionUpdateStatus.updating,
     );
     notifyListeners();
   }
@@ -66,19 +96,12 @@ class SubscriptionsController extends ChangeNotifier {
     final uri = Uri.tryParse(trimmed);
     if (uri == null || !uri.hasAbsolutePath) return false;
 
-    addSubscription(trimmed);
+    await addSubscription(trimmed);
     return true;
   }
 
   String exportSubscriptions() {
-    final data = _subscriptions
-        .map((s) => {
-              'id': s.id,
-              'name': s.name,
-              'url': s.url,
-              'enabled': s.enabled,
-            })
-        .toList();
+    final data = _subscriptions.map((s) => s.toJson()).toList();
     return const JsonEncoder.withIndent('  ').convert(data);
   }
 
@@ -89,12 +112,10 @@ class SubscriptionsController extends ChangeNotifier {
         final map = item as Map<String, dynamic>;
         final url = map['url'] as String?;
         if (url != null) {
-          addSubscription(
-            url,
-            name: map['name'] as String?,
-          );
+          _subscriptions.add(Subscription.fromJson(map));
         }
       }
+      notifyListeners();
     } catch (_) {
       // ignore malformed data
     }

@@ -74,9 +74,19 @@ class SubscriptionCard extends StatelessWidget {
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
+                        const SizedBox(height: 2),
+                        Text(
+                          sub.safeUrl,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
                     ),
                   ),
+                  _StatusChip(subscription: sub),
+                  const SizedBox(width: 4),
                   PopupMenuButton<String>(
                     onSelected: onMenuSelected,
                     itemBuilder: (_) => [
@@ -116,6 +126,17 @@ class SubscriptionCard extends StatelessWidget {
                   ),
                 ),
               ],
+              if (sub.lastError != null && sub.lastError!.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.smallGap),
+                Text(
+                  sub.lastError!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -125,6 +146,57 @@ class SubscriptionCard extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.subscription});
+
+  final Subscription subscription;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final status = subscription.updateStatus;
+    final (label, color) = switch (status) {
+      SubscriptionUpdateStatus.updating => (
+          'Updating',
+          theme.colorScheme.primary
+        ),
+      SubscriptionUpdateStatus.updated => ('Updated', const Color(0xff15803d)),
+      SubscriptionUpdateStatus.noChange => (
+          'Current',
+          theme.colorScheme.primary
+        ),
+      SubscriptionUpdateStatus.failed => ('Failed', theme.colorScheme.error),
+      SubscriptionUpdateStatus.idle => (
+          'Idle',
+          theme.colorScheme.onSurfaceVariant
+        ),
+    };
+
+    if (status == SubscriptionUpdateStatus.updating) {
+      return const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
   }
 }
 

@@ -391,7 +391,8 @@ class SingboxProxyRepository extends ProxyRepository {
       notifyListeners();
       return;
     }
-    _appendLog(_mapLogLevel(event), 'core', event.message);
+    final message = _cleanLogMessage(event.message);
+    _appendLog(_mapLogLevel(event, message), 'core', message);
     notifyListeners();
   }
 
@@ -409,23 +410,46 @@ class SingboxProxyRepository extends ProxyRepository {
     }
   }
 
-  LogLevel _mapLogLevel(SingboxLogEvent event) {
-    final level = event.levelName.toLowerCase();
-    if (level.contains('error') ||
-        level.contains('fatal') ||
-        event.level >= 4) {
+  String _cleanLogMessage(String message) {
+    return message.replaceAll(
+      RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]'),
+      '',
+    );
+  }
+
+  LogLevel _mapLogLevel(SingboxLogEvent event, String message) {
+    final parsed = _parseLogLevel(message);
+    if (parsed != null) {
+      return parsed;
+    }
+
+    final levelName = event.levelName.toLowerCase();
+    if (levelName.contains('error') || levelName.contains('fatal')) {
       return LogLevel.error;
     }
-    if (level.contains('warn') || event.level == 3) {
+    if (levelName.contains('warn')) {
       return LogLevel.warning;
     }
-    if (level.contains('debug') || event.level == 1) {
+    if (levelName.contains('debug')) {
       return LogLevel.debug;
     }
-    if (level.contains('trace') || event.level <= 0) {
+    if (levelName.contains('trace')) {
       return LogLevel.trace;
     }
     return LogLevel.info;
+  }
+
+  LogLevel? _parseLogLevel(String message) {
+    final match = RegExp(r'^\s*(TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL)\b')
+        .firstMatch(message.toUpperCase());
+    return switch (match?.group(1)) {
+      'TRACE' => LogLevel.trace,
+      'DEBUG' => LogLevel.debug,
+      'INFO' => LogLevel.info,
+      'WARN' || 'WARNING' => LogLevel.warning,
+      'ERROR' || 'FATAL' => LogLevel.error,
+      _ => null,
+    };
   }
 }
 

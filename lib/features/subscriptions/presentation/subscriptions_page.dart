@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/widgets/empty_state.dart';
+import '../../proxies/application/proxy_catalog.dart';
 import '../application/subscriptions_controller.dart';
 import 'widgets/add_subscription_sheet.dart';
 import 'widgets/subscription_card.dart';
@@ -22,6 +23,12 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.bindProxyCatalog(ProxyCatalogScope.of(context));
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -39,8 +46,14 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
             title: const Text('Subscriptions'),
             actions: [
               IconButton(
+                onPressed: _controller.busy ? null : _updateAll,
+                icon: const Icon(Icons.sync),
+                tooltip: 'Update all',
+              ),
+              IconButton(
                 onPressed: _showAddSheet,
                 icon: const Icon(Icons.add),
+                tooltip: 'Add subscription',
               ),
             ],
           ),
@@ -86,19 +99,26 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
     final url = result['url'];
     if (url == null || url.isEmpty) return;
 
-    _controller.addSubscription(url, name: result['name']);
+    await _controller.addSubscription(url, name: result['name']);
   }
 
-  void _handleMenu(String action, String id) {
+  Future<void> _handleMenu(String action, String id) async {
     switch (action) {
       case 'use':
         _controller.setActive(id);
       case 'update':
-        _controller.updateSubscription(id);
+        await _controller.updateSubscription(id);
       case 'rename':
         _showRenameDialog(id);
       case 'delete':
         _showDeleteConfirm(id);
+    }
+  }
+
+  Future<void> _updateAll() async {
+    final ids = _controller.subscriptions.map((s) => s.id).toList();
+    for (final id in ids) {
+      await _controller.updateSubscription(id);
     }
   }
 

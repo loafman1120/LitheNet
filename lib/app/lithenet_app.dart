@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
+import '../features/proxies/application/proxy_catalog.dart';
 import '../repositories/proxy_repository.dart';
 import 'router.dart';
 
@@ -18,6 +19,7 @@ class LitheNetApp extends StatefulWidget {
 
 class _LitheNetAppState extends State<LitheNetApp> {
   late final ProxyRepository _proxyRepository;
+  late final ProxyCatalog _proxyCatalog;
   late final AppRouter _appRouter;
   ThemeMode _themeMode = ThemeMode.system;
 
@@ -25,12 +27,14 @@ class _LitheNetAppState extends State<LitheNetApp> {
   void initState() {
     super.initState();
     _proxyRepository = widget.proxyRepository ?? SingboxProxyRepository();
+    _proxyCatalog = ProxyCatalog();
     _appRouter = AppRouter();
   }
 
   @override
   void dispose() {
     _proxyRepository.dispose();
+    _proxyCatalog.dispose();
     super.dispose();
   }
 
@@ -40,15 +44,18 @@ class _LitheNetAppState extends State<LitheNetApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ProxyRepositoryScope(
-      repository: _proxyRepository,
-      child: MaterialApp.router(
-        title: 'LitheNet',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
-        darkTheme: AppTheme.dark,
-        themeMode: _themeMode,
-        routerConfig: _appRouter.router,
+    return ProxyCatalogScope(
+      catalog: _proxyCatalog,
+      child: ProxyRepositoryScope(
+        repository: _proxyRepository,
+        child: MaterialApp.router(
+          title: 'LitheNet',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: _themeMode,
+          routerConfig: _appRouter.router,
+        ),
       ),
     );
   }

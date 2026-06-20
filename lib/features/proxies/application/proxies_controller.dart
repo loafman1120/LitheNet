@@ -2,10 +2,18 @@ import 'package:flutter/widgets.dart';
 
 import '../../../data/models/proxy_group.dart';
 import '../../../data/models/proxy_node.dart';
+import 'proxy_catalog.dart';
 
 enum ProxyMode { rule, global, direct }
 
 class ProxiesController extends ChangeNotifier {
+  ProxiesController({ProxyCatalog? catalog}) {
+    if (catalog != null) {
+      bind(catalog);
+    }
+  }
+
+  ProxyCatalog? _catalog;
   ProxyMode _mode = ProxyMode.rule;
   List<ProxyGroup> _groups = [];
   int _selectedGroupIndex = 0;
@@ -22,6 +30,15 @@ class ProxiesController extends ChangeNotifier {
 
   ProxyGroup? get selectedGroup =>
       _groups.isEmpty ? null : _groups[_selectedGroupIndex];
+
+  void bind(ProxyCatalog catalog) {
+    if (_catalog == catalog) {
+      return;
+    }
+    _catalog?.removeListener(_syncFromCatalog);
+    _catalog = catalog..addListener(_syncFromCatalog);
+    _syncFromCatalog();
+  }
 
   List<ProxyNode> get filteredNodes {
     final group = selectedGroup;
@@ -63,7 +80,14 @@ class ProxiesController extends ChangeNotifier {
   void selectNode(String nodeId) {
     if (_groups.isEmpty) return;
     final group = _groups[_selectedGroupIndex];
-    _groups[_selectedGroupIndex] = group.copyWith(selectedNodeId: nodeId);
+    _catalog?.selectNode(group.id, nodeId);
+    _groups[_selectedGroupIndex] = group.copyWith(
+      selectedNodeId: nodeId,
+      nodes: [
+        for (final node in group.nodes)
+          node.copyWith(isSelected: node.id == nodeId),
+      ],
+    );
     notifyListeners();
   }
 
@@ -111,6 +135,27 @@ class ProxiesController extends ChangeNotifier {
       notifyListeners();
       return;
     }
+  }
+
+  @override
+  void dispose() {
+    _catalog?.removeListener(_syncFromCatalog);
+    super.dispose();
+  }
+
+  void _syncFromCatalog() {
+    final catalog = _catalog;
+    if (catalog == null) {
+      return;
+    }
+    final selectedGroupId = selectedGroup?.id;
+    _groups = catalog.groups;
+    final index = _groups.indexWhere((group) => group.id == selectedGroupId);
+    _selectedGroupIndex = index >= 0 ? index : 0;
+    if (_selectedGroupIndex >= _groups.length) {
+      _selectedGroupIndex = 0;
+    }
+    notifyListeners();
   }
 
   void loadDemoGroups() {
