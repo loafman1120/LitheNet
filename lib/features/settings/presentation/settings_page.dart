@@ -133,13 +133,13 @@ class _SettingsPageState extends State<SettingsPage> {
   void _showThemeDialog() {
     showDialog(
       context: context,
-      builder: (_) => SimpleDialog(
+      builder: (dialogContext) => SimpleDialog(
         title: const Text('Theme'),
         children: ThemeModeOption.values.map((mode) {
           return SimpleDialogOption(
             onPressed: () {
               _controller.setThemeMode(mode);
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
             },
             child: Row(
               children: [
@@ -163,7 +163,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Mixed port'),
         content: TextField(
           controller: controller,
@@ -172,7 +172,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
@@ -181,7 +181,7 @@ class _SettingsPageState extends State<SettingsPage> {
               if (port != null && port > 0 && port < 65536) {
                 _controller.setMixedPort(port);
               }
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
             },
             child: const Text('Save'),
           ),
@@ -193,20 +193,20 @@ class _SettingsPageState extends State<SettingsPage> {
   void _showReconnectWarning(VoidCallback onConfirm) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Reconnect required'),
         content: const Text(
           'Changing this setting requires reconnecting the proxy. Continue?',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () {
               onConfirm();
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
             },
             child: const Text('Continue'),
           ),
