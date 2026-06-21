@@ -77,7 +77,11 @@ lib/
 │           └── about_page.dart            # 关于页
 │
 └── repositories/
-    └── proxy_repository.dart              # 核心仓库层（singbox-ffi 桥接）
+    ├── proxy_repository.dart              # Repository library entry point
+    ├── proxy_repository_contract.dart     # ProxyRepository abstract contract
+    ├── proxy_repository_scope.dart        # InheritedNotifier provider
+    ├── singbox_proxy_repository.dart      # singbox-ffi backed implementation
+    └── traffic_snapshot.dart              # Immutable traffic counters
 ```
 
 ---
@@ -464,7 +468,7 @@ ListView
 main.dart
   └── lithenet_app.dart
         ├── app_theme.dart
-        ├── proxy_repository.dart ──→ singbox_ffi
+        ├── repositories/ ──→ singbox_ffi
         └── router.dart
               ├── home_page.dart ──→ proxy_repository, app_spacing, format_bytes
               ├── proxies_page.dart ──→ proxies_controller, app_spacing, empty_state
