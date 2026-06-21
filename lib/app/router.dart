@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/connections/presentation/connections_page.dart';
 import '../features/home/home_page.dart';
 import '../features/logs/presentation/logs_page.dart';
 import '../features/proxies/presentation/proxies_page.dart';
@@ -33,6 +34,10 @@ class AppRouter {
             pageBuilder: _fadePageBuilder(const SubscriptionsPage()),
           ),
           GoRoute(
+            path: AppRoute.connections.path,
+            pageBuilder: _fadePageBuilder(const ConnectionsPage()),
+          ),
+          GoRoute(
             path: AppRoute.logs.path,
             pageBuilder: _fadePageBuilder(const LogsPage()),
           ),
@@ -59,6 +64,7 @@ enum AppRoute {
   home('/'),
   proxies('/proxies'),
   subscriptions('/subscriptions'),
+  connections('/connections'),
   logs('/logs'),
   settings('/settings');
 

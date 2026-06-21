@@ -66,6 +66,11 @@ class AdaptiveScaffold extends StatelessWidget {
       label: 'Subs',
     ),
     NavigationDestination(
+      icon: Icon(Icons.cable_outlined),
+      selectedIcon: Icon(Icons.cable),
+      label: 'Connections',
+    ),
+    NavigationDestination(
       icon: Icon(Icons.receipt_long_outlined),
       selectedIcon: Icon(Icons.receipt_long),
       label: 'Logs',

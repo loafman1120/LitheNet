@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/models/app_settings.dart';
+import '../../../repositories/proxy_repository.dart';
 import '../application/settings_controller.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -27,6 +28,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final repository = ProxyRepositoryScope.of(context);
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
@@ -67,7 +69,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   _SettingsTile(
                     icon: Icons.tune,
                     title: 'Mixed port',
-                    subtitle: '${_controller.settings.mixedPort}',
+                    subtitle: '${repository.mixedPort}',
                     onTap: _showPortDialog,
                   ),
                   _SettingsTile(
@@ -82,10 +84,13 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: Icons.settings_ethernet,
                     title: 'System proxy',
                     trailing: Switch(
-                      value: _controller.settings.systemProxy,
+                      value: repository.systemProxyEnabled,
                       onChanged: (v) {
                         _showReconnectWarning(
-                          () => _controller.setSystemProxy(v),
+                          () {
+                            _controller.setSystemProxy(v);
+                            repository.setSystemProxyEnabled(v);
+                          },
                         );
                       },
                     ),
@@ -158,8 +163,9 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showPortDialog() {
+    final repository = ProxyRepositoryScope.of(context);
     final controller = TextEditingController(
-      text: _controller.settings.mixedPort.toString(),
+      text: repository.mixedPort.toString(),
     );
     showDialog(
       context: context,
@@ -180,6 +186,10 @@ class _SettingsPageState extends State<SettingsPage> {
               final port = int.tryParse(controller.text);
               if (port != null && port > 0 && port < 65536) {
                 _controller.setMixedPort(port);
+                repository.updateEndpoint(
+                  listenAddress: repository.listenAddress,
+                  mixedPort: port,
+                );
               }
               Navigator.pop(dialogContext);
             },

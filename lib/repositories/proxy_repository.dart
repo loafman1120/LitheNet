@@ -29,6 +29,7 @@ abstract class ProxyRepository extends ChangeNotifier {
   bool get busy;
   bool get coreLoaded;
   bool get running;
+  bool get systemProxyEnabled;
   String get status;
   String get message;
   String get listenAddress;
@@ -56,6 +57,7 @@ abstract class ProxyRepository extends ChangeNotifier {
     required String listenAddress,
     required int mixedPort,
   });
+  Future<void> setSystemProxyEnabled(bool enabled);
 
   void updateConfig(String configJson);
   void resetDirectConfig();
@@ -89,6 +91,7 @@ class SingboxProxyRepository extends ProxyRepository {
   StreamSubscription<List<SingboxApiGroup>>? _groupsSubscription;
   StreamSubscription<List<SingboxApiGroupItem>>? _outboundsSubscription;
   bool _busy = false;
+  bool _systemProxyEnabled = true;
   String _status = 'Stopped';
   String _message =
       'Load the bundled singbox-ffi core, validate a config, then start.';
@@ -114,7 +117,10 @@ class SingboxProxyRepository extends ProxyRepository {
   bool get coreLoaded => _core != null;
 
   @override
-  bool get running => _service != null;
+  bool get running => _isServiceRunning(_service);
+
+  @override
+  bool get systemProxyEnabled => _systemProxyEnabled;
 
   @override
   String get status => _status;
@@ -174,6 +180,24 @@ class SingboxProxyRepository extends ProxyRepository {
   }
 
   @override
+  Future<void> setSystemProxyEnabled(bool enabled) async {
+    _systemProxyEnabled = enabled;
+    notifyListeners();
+
+    final service = _service;
+    if (!_isServiceRunning(service)) {
+      return;
+    }
+
+    if (enabled) {
+      _enableSystemProxy(service);
+    } else {
+      _disableSystemProxy(service);
+    }
+    notifyListeners();
+  }
+
+  @override
   void updateConfig(String configJson) {
     _configJson = configJson;
     notifyListeners();
@@ -207,7 +231,7 @@ class SingboxProxyRepository extends ProxyRepository {
 
   @override
   Future<void> start() async {
-    await _guard(() {
+    await _guard(() async {
       final core = _ensureCore();
       final config = _normalizedConfig();
       core.checkConfig(config);
@@ -223,6 +247,7 @@ class SingboxProxyRepository extends ProxyRepository {
         'core',
         'Mixed proxy is running on $_listenAddress:$_mixedPort.',
       );
+      _enableSystemProxy(service);
       notifyListeners();
     });
   }
@@ -231,8 +256,11 @@ class SingboxProxyRepository extends ProxyRepository {
   Future<void> reload() async {
     await _guard(() {
       final service = _service;
-      if (service == null) {
-        throw SingboxException('service is not running');
+      if (service == null || !_isServiceRunning(service)) {
+        throw SingboxException(
+          'service is not running',
+          kind: SingboxErrorKind.serviceState,
+        );
       }
       final config = _normalizedConfig();
       _ensureCore().checkConfig(config);
@@ -246,8 +274,10 @@ class SingboxProxyRepository extends ProxyRepository {
 
   @override
   Future<void> stop() async {
-    await _guard(() {
-      _service?.close();
+    await _guard(() async {
+      final service = _service;
+      _disableSystemProxy(service);
+      service?.close();
       _service = null;
       _status = 'Stopped';
       _message = 'Proxy stopped.';
@@ -304,6 +334,7 @@ class SingboxProxyRepository extends ProxyRepository {
     _stopLogStream();
     _stopApiClient();
     try {
+      _disableSystemProxy(_service);
       _service?.close();
     } catch (_) {
       // Flutter is tearing down; there is no useful UI surface left for errors.
@@ -355,14 +386,14 @@ class SingboxProxyRepository extends ProxyRepository {
     return core;
   }
 
-  Future<void> _guard(VoidCallback action) async {
+  Future<void> _guard(FutureOr<void> Function() action) async {
     if (_busy) {
       return;
     }
     _busy = true;
     notifyListeners();
     try {
-      action();
+      await action();
     } catch (error) {
       _message = error.toString();
       _appendLog(LogLevel.error, 'core', error.toString());
@@ -451,7 +482,7 @@ class SingboxProxyRepository extends ProxyRepository {
   }
 
   void _restartApiClient() {
-    if (_service == null) {
+    if (!running) {
       return;
     }
     _startApiClient();
@@ -532,6 +563,48 @@ class SingboxProxyRepository extends ProxyRepository {
   void _stopLogStream() {
     _logSubscription?.cancel();
     _logSubscription = null;
+  }
+
+  void _enableSystemProxy(SingboxService? service) {
+    if (!_systemProxyEnabled || service == null) {
+      return;
+    }
+    try {
+      service.enableSystemProxy(
+        SingboxSystemProxyOptions(host: _listenAddress, port: _mixedPort),
+      );
+      _appendLog(
+        LogLevel.info,
+        'core',
+        'System proxy set to $_listenAddress:$_mixedPort.',
+      );
+    } catch (error) {
+      _appendLog(
+        LogLevel.warning,
+        'core',
+        'Failed to set system proxy: $error',
+      );
+    }
+  }
+
+  void _disableSystemProxy(SingboxService? service) {
+    if (service == null) {
+      return;
+    }
+    try {
+      service.disableSystemProxy();
+      _appendLog(LogLevel.info, 'core', 'System proxy restored.');
+    } catch (error) {
+      _appendLog(
+        LogLevel.warning,
+        'core',
+        'Failed to restore system proxy: $error',
+      );
+    }
+  }
+
+  bool _isServiceRunning(SingboxService? service) {
+    return service?.state().running ?? false;
   }
 
   void _handleCoreLogEvent(SingboxLogEvent event) {
