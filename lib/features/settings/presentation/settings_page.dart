@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../data/models/app_settings.dart';
 import '../../../repositories/proxy_repository.dart';
 import '../application/settings_controller.dart';
+import 'widgets/settings_group.dart';
+import 'widgets/settings_tile.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -36,16 +38,16 @@ class _SettingsPageState extends State<SettingsPage> {
           appBar: AppBar(title: const Text('Settings')),
           body: ListView(
             children: [
-              _SettingsGroup(
+              SettingsGroup(
                 title: 'General',
                 children: [
-                  _SettingsTile(
+                  SettingsTile(
                     icon: Icons.language,
                     title: 'Language',
                     subtitle: 'English',
                     onTap: () {},
                   ),
-                  _SettingsTile(
+                  SettingsTile(
                     icon: Icons.power_settings_new,
                     title: 'Start on boot',
                     trailing: Switch(
@@ -53,7 +55,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       onChanged: _controller.setStartOnBoot,
                     ),
                   ),
-                  _SettingsTile(
+                  SettingsTile(
                     icon: Icons.notifications_outlined,
                     title: 'Notifications',
                     trailing: Switch(
@@ -63,22 +65,22 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ],
               ),
-              _SettingsGroup(
+              SettingsGroup(
                 title: 'Network',
                 children: [
-                  _SettingsTile(
+                  SettingsTile(
                     icon: Icons.alt_route,
                     title: 'Proxy mode',
                     subtitle: repository.proxyMode.label,
                     onTap: _showProxyModeDialog,
                   ),
-                  _SettingsTile(
+                  SettingsTile(
                     icon: Icons.tune,
                     title: 'Mixed port',
                     subtitle: '${repository.mixedPort}',
                     onTap: _showPortDialog,
                   ),
-                  _SettingsTile(
+                  SettingsTile(
                     icon: Icons.language,
                     title: 'IPv6',
                     trailing: Switch(
@@ -86,7 +88,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       onChanged: _controller.setIPv6,
                     ),
                   ),
-                  _SettingsTile(
+                  SettingsTile(
                     icon: Icons.settings_ethernet,
                     title: 'System proxy',
                     trailing: Switch(
@@ -103,10 +105,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ],
               ),
-              _SettingsGroup(
+              SettingsGroup(
                 title: 'Appearance',
                 children: [
-                  _SettingsTile(
+                  SettingsTile(
                     icon: Icons.dark_mode_outlined,
                     title: 'Theme',
                     subtitle: _controller.settings.themeMode.label,
@@ -114,20 +116,20 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ],
               ),
-              _SettingsGroup(
+              SettingsGroup(
                 title: 'About',
                 children: [
-                  _SettingsTile(
+                  SettingsTile(
                     icon: Icons.info_outline,
                     title: 'Version',
                     subtitle: '0.1.0',
                   ),
-                  _SettingsTile(
+                  SettingsTile(
                     icon: Icons.update,
                     title: 'Check for updates',
                     onTap: () {},
                   ),
-                  _SettingsTile(
+                  SettingsTile(
                     icon: Icons.description_outlined,
                     title: 'License',
                     onTap: () {},
@@ -261,63 +263,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SettingsGroup extends StatelessWidget {
-  const _SettingsGroup({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-          child: Text(
-            title.toUpperCase(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.primary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        ...children,
-        const Divider(indent: 16, endIndent: 16),
-      ],
-    );
-  }
-}
-
-class _SettingsTile extends StatelessWidget {
-  const _SettingsTile({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.trailing,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: subtitle != null ? Text(subtitle!) : null,
-      trailing: trailing,
-      onTap: onTap,
     );
   }
 }

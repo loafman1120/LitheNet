@@ -12,6 +12,9 @@ import '../data/singbox_api/singbox_api_config.dart';
 import '../data/singbox_api/singbox_api_models.dart';
 
 part 'proxy_repository_contract.dart';
+part 'singbox_api_bindings.dart';
+part 'singbox_config.dart';
+part 'singbox_platform.dart';
 part 'proxy_repository_scope.dart';
 part 'singbox_proxy_repository.dart';
 part 'traffic_snapshot.dart';
