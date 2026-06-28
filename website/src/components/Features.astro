@@ -12,16 +12,13 @@ const features = [
 ---
 
 <section id="features" class="relative">
-  <!-- Background gradient -->
-  <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
-
   <div class="section-container">
-    <div class="reveal text-center">
+    <div class="reveal max-w-2xl">
       <h2 class="section-title">{t['features.title']}</h2>
-      <p class="section-subtitle mx-auto">{t['screenshots.desc']}</p>
+      <p class="section-subtitle !mx-0">{t['screenshots.desc']}</p>
     </div>
 
-    <div class="mt-16 grid gap-6 sm:grid-cols-2">
+    <div class="mt-12 grid gap-px overflow-hidden rounded-lg border border-slate-800 bg-slate-800 sm:grid-cols-2">
       {features.map((f, i) => (
         <FeatureCard title={f.title} desc={f.desc} icon={f.icon} index={i} />
       ))}

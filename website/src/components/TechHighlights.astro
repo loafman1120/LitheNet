@@ -2,29 +2,27 @@
 const { lang, t } = Astro.props;
 
 const highlights = [
-  { label: t['tech.singbox'], value: '1', suffix: '', icon: '⚡' },
-  { label: t['tech.ffi'], value: '0', suffix: 'ms', icon: '🔗' },
-  { label: t['tech.cross'], value: '3', suffix: '', icon: '🖥️' },
-  { label: t['tech.oss'], value: '100', suffix: '%', icon: '💚' },
+  { label: t['tech.singbox'], value: '1', suffix: '', tone: 'text-brand-200' },
+  { label: t['tech.ffi'], value: '0', suffix: 'ms', tone: 'text-emerald-200' },
+  { label: t['tech.cross'], value: '3', suffix: '', tone: 'text-sky-200' },
+  { label: t['tech.oss'], value: '100', suffix: '%', tone: 'text-amber-200' },
 ];
 ---
 
 <section class="relative">
-  <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
-
   <div class="section-container">
-    <div class="reveal text-center">
+    <div class="reveal flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <h2 class="section-title">{t['tech.title']}</h2>
+      <div class="h-px flex-1 bg-gradient-to-r from-slate-800 to-transparent sm:max-w-xl"></div>
     </div>
 
-    <div class="mt-16 grid grid-cols-2 gap-6 md:grid-cols-4">
+    <div class="mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-800 bg-slate-800 md:grid-cols-4">
       {highlights.map((h, i) => (
-        <div class={`reveal reveal-delay-${i + 1} text-center`}>
-          <div class="text-4xl mb-3">{h.icon}</div>
-          <div class="text-4xl font-extrabold text-white md:text-5xl">
+        <div class={`reveal reveal-delay-${i + 1} bg-[#0a0e12] p-5`}>
+          <div class={`font-mono text-3xl font-semibold md:text-4xl ${h.tone}`}>
             <span class="counter" data-target={h.value}>0</span>{h.suffix}
           </div>
-          <div class="mt-2 text-sm text-slate-400">{h.label}</div>
+          <div class="mt-3 text-sm text-slate-400">{h.label}</div>
         </div>
       ))}
     </div>

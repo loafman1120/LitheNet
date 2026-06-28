@@ -2,10 +2,13 @@
 import { defineConfig } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 
+const runtime = /** @type {{ process?: { env?: { SITE_URL?: string; BASE_PATH?: string } } }} */ (globalThis);
+const env = runtime.process?.env ?? {};
+
 // https://astro.build/config
 export default defineConfig({
-  site: process.env.SITE_URL || 'https://lithe.loafman.top',
-  base: process.env.BASE_PATH || '/',
+  site: env.SITE_URL || 'https://lithe.loafman.top',
+  base: env.BASE_PATH || '/',
   output: 'static',
   compressHTML: true,
   vite: {

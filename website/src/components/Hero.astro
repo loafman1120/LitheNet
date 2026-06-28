@@ -4,180 +4,123 @@ import { siteConfig } from '../data/site';
 const { lang, t } = Astro.props;
 ---
 
-<section class="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
-  <!-- Particle Background -->
-  <div id="particle-canvas" class="absolute inset-0 z-0"></div>
+<section class="relative isolate min-h-[94vh] overflow-hidden pt-20">
+  <div class="lithe-grid absolute inset-0 z-0"></div>
+  <div class="absolute inset-x-0 top-0 z-0 h-px bg-gradient-to-r from-transparent via-brand-200/40 to-transparent"></div>
 
-  <!-- Gradient overlays -->
-  <div class="absolute inset-0 z-[1] bg-gradient-to-b from-slate-950/50 via-transparent to-slate-950"></div>
-  <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-brand-500/10 blur-[120px] z-0"></div>
-
-  <!-- Content -->
-  <div class="relative z-10 mx-auto max-w-4xl px-6 text-center">
-    <div class="reveal">
-      <!-- Badge -->
-      <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-slate-700/50 bg-slate-800/50 px-4 py-1.5 text-xs font-medium text-slate-300 backdrop-blur-sm">
-        <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-        v{siteConfig.version} — Open Source
-      </div>
-
-      <!-- Title -->
-      <h1 class="text-5xl font-extrabold tracking-tight text-white sm:text-6xl md:text-7xl lg:text-8xl">
-        <span class="bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-          {t['hero.title']}
-        </span>
+  <div class="relative z-10 mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-14 lg:min-h-[calc(94vh-5rem)] lg:grid-cols-[0.9fr_1.1fr] lg:pb-20 lg:pt-10">
+    <div>
+      <h1 class="max-w-3xl text-5xl font-semibold leading-[0.96] tracking-normal text-white sm:text-6xl lg:text-7xl">
+        {t['hero.title']}
       </h1>
 
-      <!-- Subtitle -->
-      <p class="mx-auto mt-6 max-w-2xl text-lg text-slate-400 sm:text-xl">
+      <p class="mt-6 max-w-xl text-base leading-8 text-slate-300 sm:text-lg">
         {t['hero.subtitle']}
       </p>
 
-      <!-- CTAs -->
-      <div class="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-        <a href="#download" class="btn-primary text-base px-8 py-3.5">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+      <div class="mt-9 flex flex-col gap-3 sm:flex-row">
+        <a href="#download" class="btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
           {t['hero.download']}
         </a>
-        <a href={siteConfig.github} target="_blank" rel="noopener noreferrer" class="btn-outline text-base px-8 py-3.5">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+        <a href={siteConfig.github} target="_blank" rel="noopener noreferrer" class="btn-outline">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4">
             <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
           </svg>
           {t['hero.github']}
         </a>
       </div>
 
-      <!-- Platform badges -->
-      <div class="mt-8 flex items-center justify-center gap-3 text-xs text-slate-500">
+      <div class="mt-9 flex flex-wrap items-center gap-x-5 gap-y-3 text-xs text-slate-500">
+        <span class="font-mono text-brand-200">sing-box</span>
+        <span class="h-1 w-1 rounded-full bg-slate-700"></span>
+        <span>Flutter Desktop</span>
+        <span class="h-1 w-1 rounded-full bg-slate-700"></span>
         <span>{t['hero.platforms']}</span>
+      </div>
+    </div>
+
+    <div class="relative">
+      <div class="absolute -inset-6 rounded-2xl border border-brand-200/10 bg-brand-300/[0.025] blur-2xl"></div>
+      <div class="relative overflow-hidden rounded-lg border border-slate-700/60 bg-[#0d1318]/95 shadow-2xl shadow-black/40">
+        <div class="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+          <div class="flex items-center gap-2">
+            <span class="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-[#ffd166]"></span>
+            <span class="h-2.5 w-2.5 rounded-full bg-[#2dd4bf]"></span>
+          </div>
+          <span class="font-mono text-[11px] text-slate-500">LitheNet / desktop</span>
+        </div>
+
+        <div class="grid min-h-[340px] grid-cols-1 md:min-h-[420px] md:grid-cols-[13rem_1fr]">
+          <aside class="hidden border-b border-slate-800 bg-slate-950/35 p-4 md:block md:border-b-0 md:border-r">
+            <div class="mb-5 flex items-center gap-3">
+              <div class="h-8 w-8 rounded-md border border-brand-200/20 bg-brand-300/10"></div>
+              <div>
+                <div class="h-2.5 w-20 rounded bg-slate-500/50"></div>
+                <div class="mt-2 h-2 w-14 rounded bg-slate-700/70"></div>
+              </div>
+            </div>
+            <div class="space-y-2 text-sm">
+              <div class="rounded-md border border-brand-200/20 bg-brand-300/10 px-3 py-2 text-brand-100">Overview</div>
+              <div class="rounded-md px-3 py-2 text-slate-500">Proxies</div>
+              <div class="rounded-md px-3 py-2 text-slate-500">Subscriptions</div>
+              <div class="rounded-md px-3 py-2 text-slate-500">Logs</div>
+            </div>
+          </aside>
+
+          <div class="p-4 sm:p-5">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p class="font-mono text-xs uppercase text-brand-200">Connected</p>
+                <h2 class="mt-2 text-2xl font-semibold text-white">Rule mode</h2>
+              </div>
+              <div class="flex rounded-md border border-slate-700/70 bg-slate-950/35 p-1 text-xs">
+                <span class="rounded bg-brand-300/15 px-3 py-1.5 text-brand-100">Rule</span>
+                <span class="px-3 py-1.5 text-slate-500">Global</span>
+                <span class="px-3 py-1.5 text-slate-500">Direct</span>
+              </div>
+            </div>
+
+            <div class="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+              <div class="rounded-md border border-slate-800 bg-slate-950/25 p-4">
+                <p class="text-xs text-slate-500">Down</p>
+                <p class="mt-2 font-mono text-sm text-white sm:text-xl">2.4 MB/s</p>
+              </div>
+              <div class="rounded-md border border-slate-800 bg-slate-950/25 p-4">
+                <p class="text-xs text-slate-500">Up</p>
+                <p class="mt-2 font-mono text-sm text-white sm:text-xl">856 KB/s</p>
+              </div>
+              <div class="rounded-md border border-slate-800 bg-slate-950/25 p-4">
+                <p class="text-xs text-slate-500">Latency</p>
+                <p class="mt-2 font-mono text-sm text-emerald-300 sm:text-xl">42 ms</p>
+              </div>
+            </div>
+
+            <div class="mt-5 overflow-hidden rounded-md border border-slate-800">
+              {['Tokyo Relay', 'Singapore Edge', 'Frankfurt Core'].map((name, i) => (
+                <div class="grid grid-cols-[1fr_auto] items-center border-b border-slate-800 bg-slate-950/20 px-4 py-3 last:border-b-0">
+                  <div>
+                    <p class="text-sm font-medium text-slate-100">{name}</p>
+                    <p class="mt-1 font-mono text-xs text-slate-600">subscription-{i + 1}.yaml</p>
+                  </div>
+                  <span class={`font-mono text-xs ${i === 0 ? 'text-emerald-300' : 'text-slate-400'}`}>{[42, 68, 131][i]} ms</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Scroll indicator -->
-  <div class="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 animate-bounce">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5 text-slate-500">
-      <polyline points="6 9 12 15 18 9"/>
-    </svg>
+  <div class="relative z-10 mx-auto grid max-w-6xl grid-cols-1 border-y border-slate-800/80 px-5 text-sm text-slate-400 sm:grid-cols-3">
+    <div class="border-slate-800 py-4 sm:border-r">{t['features.proxy.title']}</div>
+    <div class="border-slate-800 py-4 sm:border-r sm:px-6">{t['features.subs.title']}</div>
+    <div class="py-4 sm:px-6">{t['features.logs.title']}</div>
   </div>
 </section>
-
-<script>
-  // Simple particle animation on canvas
-  function initParticles() {
-    const container = document.getElementById('particle-canvas');
-    if (!container) return;
-
-    const canvas = document.createElement('canvas');
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    container.appendChild(canvas);
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let width = 0;
-    let height = 0;
-    let particles: { x: number; y: number; vx: number; vy: number; size: number; alpha: number }[] = [];
-    let animFrame: number;
-    let mouse = { x: -1000, y: -1000 };
-
-    function resize() {
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
-    }
-
-    function createParticles() {
-      const count = Math.min(80, Math.floor((width * height) / 15000));
-      particles = [];
-      for (let i = 0; i < count; i++) {
-        particles.push({
-          x: Math.random() * width,
-          y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.5,
-          vy: (Math.random() - 0.5) * 0.5,
-          size: Math.random() * 2 + 1,
-          alpha: Math.random() * 0.5 + 0.1,
-        });
-      }
-    }
-
-    function draw() {
-      ctx.clearRect(0, 0, width, height);
-
-      // Draw connections
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 150) {
-            ctx.beginPath();
-            ctx.strokeStyle = `rgba(37, 99, 235, ${0.1 * (1 - dist / 150)})`;
-            ctx.lineWidth = 0.5;
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.stroke();
-          }
-        }
-      }
-
-      // Draw particles
-      for (const p of particles) {
-        // Mouse repel
-        const dx = p.x - mouse.x;
-        const dy = p.y - mouse.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 120) {
-          const force = (120 - dist) / 120 * 0.8;
-          p.vx += (dx / dist) * force;
-          p.vy += (dy / dist) * force;
-        }
-
-        // Damping
-        p.vx *= 0.99;
-        p.vy *= 0.99;
-
-        p.x += p.vx;
-        p.y += p.vy;
-
-        // Wrap
-        if (p.x < 0) p.x = width;
-        if (p.x > width) p.x = 0;
-        if (p.y < 0) p.y = height;
-        if (p.y > height) p.y = 0;
-
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(37, 99, 235, ${p.alpha})`;
-        ctx.fill();
-      }
-
-      animFrame = requestAnimationFrame(draw);
-    }
-
-    // Check reduced motion
-    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) return;
-
-    resize();
-    createParticles();
-    draw();
-
-    window.addEventListener('resize', () => {
-      resize();
-      createParticles();
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      mouse.x = e.clientX;
-      mouse.y = e.clientY;
-    });
-  }
-
-  initParticles();
-</script>

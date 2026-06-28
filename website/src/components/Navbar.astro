@@ -8,28 +8,26 @@ const normalizedBase = base.endsWith('/') ? base : `${base}/`;
 ---
 
 <nav class="fixed top-0 left-0 right-0 z-50 glass">
-  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-    <!-- Logo -->
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-3">
     <a href={`${normalizedBase}${lang}/`} class="flex items-center gap-2.5 group">
-      <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-xs font-extrabold text-white transition-transform group-hover:scale-105">
+      <div class="flex h-8 w-8 items-center justify-center rounded-md border border-brand-300/30 bg-brand-300/10 text-xs font-semibold text-brand-100 transition-colors group-hover:bg-brand-300/15">
         LN
       </div>
-      <span class="text-lg font-bold text-slate-100">LitheNet</span>
+      <span class="text-base font-semibold text-slate-50">LitheNet</span>
     </a>
 
-    <!-- Nav Links -->
-    <div class="hidden md:flex items-center gap-6">
-      <a href="#features" class="text-sm text-slate-400 transition-colors hover:text-white">
+    <div class="hidden md:flex items-center gap-7">
+      <a href="#features" class="text-sm text-slate-400 transition-colors hover:text-brand-100">
         {t['nav.features']}
       </a>
-      <a href="#download" class="text-sm text-slate-400 transition-colors hover:text-white">
+      <a href="#download" class="text-sm text-slate-400 transition-colors hover:text-brand-100">
         {t['nav.download']}
       </a>
       <a
         href={siteConfig.github}
         target="_blank"
         rel="noopener noreferrer"
-        class="text-sm text-slate-400 transition-colors hover:text-white"
+        class="text-sm text-slate-400 transition-colors hover:text-brand-100"
       >
         GitHub
       </a>
@@ -39,7 +37,7 @@ const normalizedBase = base.endsWith('/') ? base : `${base}/`;
     <!-- Mobile menu button -->
     <button
       id="mobile-menu-btn"
-      class="md:hidden p-2 text-slate-400 hover:text-white"
+      class="md:hidden rounded-md border border-slate-800 p-2 text-slate-400 hover:text-white"
       aria-label="Toggle menu"
     >
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
@@ -51,8 +49,8 @@ const normalizedBase = base.endsWith('/') ? base : `${base}/`;
   </div>
 
   <!-- Mobile menu -->
-  <div id="mobile-menu" class="hidden md:hidden border-t border-slate-800">
-    <div class="flex flex-col gap-3 px-6 py-4">
+  <div id="mobile-menu" class="hidden md:hidden border-t border-slate-800 bg-slate-950/95">
+    <div class="flex flex-col gap-3 px-5 py-4">
       <a href="#features" class="text-sm text-slate-400 hover:text-white">{t['nav.features']}</a>
       <a href="#download" class="text-sm text-slate-400 hover:text-white">{t['nav.download']}</a>
       <a href={siteConfig.github} target="_blank" rel="noopener noreferrer" class="text-sm text-slate-400 hover:text-white">GitHub</a>
