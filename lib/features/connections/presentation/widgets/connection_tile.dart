@@ -96,8 +96,10 @@ class ConnectionTile extends StatelessWidget {
 
   String _formatDuration(int createdAt, int closedAt) {
     if (createdAt <= 0) return '';
-    final end = closedAt > 0 ? closedAt : DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final end =
+        closedAt > 0 ? closedAt : DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final seconds = end - createdAt;
+    if (seconds < 0) return '';
     if (seconds < 60) return '${seconds}s';
     if (seconds < 3600) return '${seconds ~/ 60}m ${seconds % 60}s';
     final h = seconds ~/ 3600;

@@ -67,6 +67,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 title: 'Network',
                 children: [
                   _SettingsTile(
+                    icon: Icons.alt_route,
+                    title: 'Proxy mode',
+                    subtitle: repository.proxyMode.label,
+                    onTap: _showProxyModeDialog,
+                  ),
+                  _SettingsTile(
                     icon: Icons.tune,
                     title: 'Mixed port',
                     subtitle: '${repository.mixedPort}',
@@ -154,6 +160,39 @@ class _SettingsPageState extends State<SettingsPage> {
                   const SizedBox(width: 20),
                 const SizedBox(width: 12),
                 Text(mode.label),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showProxyModeDialog() {
+    final repository = ProxyRepositoryScope.of(context);
+    showDialog(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Proxy mode'),
+        children: ProxyMode.values.map((mode) {
+          return SimpleDialogOption(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _showReconnectWarning(
+                () {
+                  _controller.setProxyMode(mode);
+                  repository.setProxyMode(mode);
+                },
+              );
+            },
+            child: Row(
+              children: [
+                if (repository.proxyMode == mode)
+                  const Icon(Icons.check, size: 20)
+                else
+                  const SizedBox(width: 20),
+                const SizedBox(width: 12),
+                Expanded(child: Text(mode.label)),
               ],
             ),
           );

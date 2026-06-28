@@ -12,6 +12,16 @@ enum ThemeModeOption {
       };
 }
 
+enum ProxyMode {
+  mixed,
+  tun;
+
+  String get label => switch (this) {
+        ProxyMode.mixed => 'System proxy',
+        ProxyMode.tun => 'TUN',
+      };
+}
+
 @immutable
 class AppSettings {
   const AppSettings({
@@ -20,6 +30,7 @@ class AppSettings {
     this.enableNotifications = true,
     this.listenAddress = '127.0.0.1',
     this.mixedPort = 2080,
+    this.proxyMode = ProxyMode.mixed,
     this.ipv6 = false,
     this.systemProxy = true,
     this.perAppProxy = false,
@@ -30,6 +41,7 @@ class AppSettings {
   final bool enableNotifications;
   final String listenAddress;
   final int mixedPort;
+  final ProxyMode proxyMode;
   final bool ipv6;
   final bool systemProxy;
   final bool perAppProxy;
@@ -40,6 +52,7 @@ class AppSettings {
     bool? enableNotifications,
     String? listenAddress,
     int? mixedPort,
+    ProxyMode? proxyMode,
     bool? ipv6,
     bool? systemProxy,
     bool? perAppProxy,
@@ -50,6 +63,7 @@ class AppSettings {
       enableNotifications: enableNotifications ?? this.enableNotifications,
       listenAddress: listenAddress ?? this.listenAddress,
       mixedPort: mixedPort ?? this.mixedPort,
+      proxyMode: proxyMode ?? this.proxyMode,
       ipv6: ipv6 ?? this.ipv6,
       systemProxy: systemProxy ?? this.systemProxy,
       perAppProxy: perAppProxy ?? this.perAppProxy,

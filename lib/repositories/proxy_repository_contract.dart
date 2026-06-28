@@ -14,6 +14,12 @@ abstract class ProxyRepository extends ChangeNotifier {
   /// Whether the service should configure the OS system proxy.
   bool get systemProxyEnabled;
 
+  /// Whether the latest TUN failure can be resolved by restarting elevated.
+  bool get canRequestTunElevation;
+
+  /// Current local proxy entry mode.
+  ProxyMode get proxyMode;
+
   /// Short user-facing service status.
   String get status;
 
@@ -69,8 +75,14 @@ abstract class ProxyRepository extends ChangeNotifier {
     required int mixedPort,
   });
 
+  /// Updates the local proxy entry mode and regenerates the default config.
+  void setProxyMode(ProxyMode mode);
+
   /// Enables or disables OS system proxy integration.
   Future<void> setSystemProxyEnabled(bool enabled);
+
+  /// Restarts the app through the platform elevation flow for TUN mode.
+  Future<void> requestTunElevation();
 
   /// Replaces the current configuration JSON.
   void updateConfig(String configJson);

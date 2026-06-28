@@ -32,6 +32,11 @@ class SettingsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setProxyMode(ProxyMode mode) {
+    _settings = _settings.copyWith(proxyMode: mode);
+    notifyListeners();
+  }
+
   void setIPv6(bool value) {
     _settings = _settings.copyWith(ipv6: value);
     notifyListeners();

@@ -7,6 +7,7 @@ class SingboxProxyRepository extends ProxyRepository {
       : _configJson = _buildDirectConfig(
           listenAddress: '127.0.0.1',
           mixedPort: 2080,
+          proxyMode: ProxyMode.mixed,
         );
 
   SingboxFfi? _core;
@@ -20,6 +21,7 @@ class SingboxProxyRepository extends ProxyRepository {
   StreamSubscription<List<SingboxApiGroupItem>>? _outboundsSubscription;
   bool _busy = false;
   bool _systemProxyEnabled = true;
+  ProxyMode _proxyMode = ProxyMode.mixed;
   String _status = 'Stopped';
   String _message =
       'Load the bundled singbox-ffi core, validate a config, then start.';
@@ -49,6 +51,15 @@ class SingboxProxyRepository extends ProxyRepository {
 
   @override
   bool get systemProxyEnabled => _systemProxyEnabled;
+
+  @override
+  bool get canRequestTunElevation =>
+      _proxyMode == ProxyMode.tun &&
+      _isTunPermissionError(_message) &&
+      (Platform.isWindows || Platform.isLinux);
+
+  @override
+  ProxyMode get proxyMode => _proxyMode;
 
   @override
   String get status => _status;
@@ -102,8 +113,24 @@ class SingboxProxyRepository extends ProxyRepository {
     _configJson = _buildDirectConfig(
       listenAddress: _listenAddress,
       mixedPort: _mixedPort,
+      proxyMode: _proxyMode,
     );
-    _message = 'Updated local mixed proxy endpoint.';
+    _message = 'Updated local proxy endpoint.';
+    notifyListeners();
+  }
+
+  @override
+  void setProxyMode(ProxyMode mode) {
+    _proxyMode = mode;
+    _configJson = _buildDirectConfig(
+      listenAddress: _listenAddress,
+      mixedPort: _mixedPort,
+      proxyMode: _proxyMode,
+    );
+    _message = switch (mode) {
+      ProxyMode.mixed => 'Generated a system proxy config.',
+      ProxyMode.tun => 'Generated a Windows TUN config. Run as administrator.',
+    };
     notifyListeners();
   }
 
@@ -126,6 +153,25 @@ class SingboxProxyRepository extends ProxyRepository {
   }
 
   @override
+  Future<void> requestTunElevation() async {
+    if (_proxyMode != ProxyMode.tun) {
+      return;
+    }
+    await _guard(() async {
+      if (Platform.isWindows) {
+        await _restartWindowsAsAdministrator();
+        return;
+      }
+      if (Platform.isLinux) {
+        await _restartLinuxWithPkexec();
+        return;
+      }
+      throw UnsupportedError(
+          'TUN elevation is not supported on this platform.');
+    });
+  }
+
+  @override
   void updateConfig(String configJson) {
     _configJson = configJson;
     notifyListeners();
@@ -136,6 +182,7 @@ class SingboxProxyRepository extends ProxyRepository {
     _configJson = _buildDirectConfig(
       listenAddress: _listenAddress,
       mixedPort: _mixedPort,
+      proxyMode: _proxyMode,
     );
     _message = 'Generated a direct outbound config.';
     notifyListeners();
@@ -167,13 +214,13 @@ class SingboxProxyRepository extends ProxyRepository {
 
       _service = service;
       _status = 'Running';
-      _message = 'Mixed proxy is running on $_listenAddress:$_mixedPort.';
+      _message = _runningMessage();
       _startLogStream(service);
       _startApiClient();
       _appendLog(
         LogLevel.info,
         'core',
-        'Mixed proxy is running on $_listenAddress:$_mixedPort.',
+        _runningMessage(),
       );
       _enableSystemProxy(service);
       notifyListeners();
@@ -323,13 +370,89 @@ class SingboxProxyRepository extends ProxyRepository {
     try {
       await action();
     } catch (error) {
-      _message = error.toString();
-      _appendLog(LogLevel.error, 'core', error.toString());
+      final message = _friendlyErrorMessage(error);
+      _message = message;
+      _appendLog(LogLevel.error, 'core', message);
       notifyListeners();
     } finally {
       _busy = false;
       notifyListeners();
     }
+  }
+
+  String _friendlyErrorMessage(Object error) {
+    final message = error.toString();
+    if (_proxyMode == ProxyMode.tun && _isTunPermissionError(message)) {
+      if (Platform.isWindows) {
+        return 'TUN needs administrator permission. Restart LitheNet as administrator to continue.';
+      }
+      if (Platform.isLinux) {
+        return 'TUN needs elevated network permission. Restart LitheNet with policy authentication to continue.';
+      }
+      return 'TUN needs elevated network permission on this platform.';
+    }
+    return message;
+  }
+
+  bool _isTunPermissionError(String message) {
+    return message.contains('platform.permission_denied') ||
+        message.contains('Access is denied') ||
+        message.contains('administrator permission') ||
+        message.contains('elevated network permission') ||
+        message.contains('operation not permitted') ||
+        message.contains('permission denied');
+  }
+
+  Future<void> _restartWindowsAsAdministrator() async {
+    final result = await Process.run(
+      'powershell',
+      [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-Command',
+        r'Start-Process -Verb RunAs -FilePath $args[0] -WorkingDirectory $args[1]',
+        Platform.resolvedExecutable,
+        Directory.current.path,
+      ],
+      runInShell: true,
+    );
+    if (result.exitCode != 0) {
+      throw SingboxException(
+        'Administrator restart was cancelled or failed.',
+        kind: SingboxErrorKind.permission,
+      );
+    }
+    exit(0);
+  }
+
+  Future<void> _restartLinuxWithPkexec() async {
+    final environment = <String, String>{
+      if (Platform.environment['DISPLAY'] case final display?)
+        'DISPLAY': display,
+      if (Platform.environment['WAYLAND_DISPLAY'] case final wayland?)
+        'WAYLAND_DISPLAY': wayland,
+      if (Platform.environment['XAUTHORITY'] case final xauthority?)
+        'XAUTHORITY': xauthority,
+      if (Platform.environment['XDG_RUNTIME_DIR'] case final runtimeDir?)
+        'XDG_RUNTIME_DIR': runtimeDir,
+    };
+    final result = await Process.run(
+      'pkexec',
+      [
+        'env',
+        ...environment.entries.map((entry) => '${entry.key}=${entry.value}'),
+        Platform.resolvedExecutable,
+      ],
+      runInShell: true,
+    );
+    if (result.exitCode != 0) {
+      throw SingboxException(
+        'Elevated restart was cancelled or failed.',
+        kind: SingboxErrorKind.permission,
+      );
+    }
+    exit(0);
   }
 
   String _normalizedConfig() {
@@ -341,21 +464,43 @@ class SingboxProxyRepository extends ProxyRepository {
   static String _buildDirectConfig({
     required String listenAddress,
     required int mixedPort,
+    required ProxyMode proxyMode,
   }) {
-    return const JsonEncoder.withIndent('  ').convert({
-      'log': {'level': 'info'},
-      'inbounds': [
-        {
+    final inbound = switch (proxyMode) {
+      ProxyMode.mixed => {
           'type': 'mixed',
           'tag': 'mixed-in',
           'listen': listenAddress,
           'listen_port': mixedPort,
-        }
-      ],
+        },
+      ProxyMode.tun => {
+          'type': 'tun',
+          'tag': 'tun-in',
+          'address': ['172.19.0.1/30'],
+          'auto_route': true,
+          'strict_route': true,
+        },
+    };
+    final route = switch (proxyMode) {
+      ProxyMode.mixed => {'final': 'direct'},
+      ProxyMode.tun => {
+          'auto_detect_interface': true,
+          'rules': [
+            {
+              'inbound': 'tun-in',
+              'action': 'sniff',
+            },
+          ],
+          'final': 'direct',
+        },
+    };
+    return const JsonEncoder.withIndent('  ').convert({
+      'log': {'level': 'info'},
+      'inbounds': [inbound],
       'outbounds': [
         {'type': 'direct', 'tag': 'direct'}
       ],
-      'route': {'final': 'direct'},
+      'route': route,
     });
   }
 
@@ -494,7 +639,9 @@ class SingboxProxyRepository extends ProxyRepository {
   }
 
   void _enableSystemProxy(SingboxService? service) {
-    if (!_systemProxyEnabled || service == null) {
+    if (!_systemProxyEnabled ||
+        service == null ||
+        _proxyMode == ProxyMode.tun) {
       return;
     }
     try {
@@ -533,6 +680,15 @@ class SingboxProxyRepository extends ProxyRepository {
 
   bool _isServiceRunning(SingboxService? service) {
     return service?.state().running ?? false;
+  }
+
+  String _runningMessage() {
+    return switch (_proxyMode) {
+      ProxyMode.mixed =>
+        'Mixed proxy is running on $_listenAddress:$_mixedPort.',
+      ProxyMode.tun =>
+        'TUN proxy is running. Administrator permission may be required.',
+    };
   }
 
   void _handleCoreLogEvent(SingboxLogEvent event) {

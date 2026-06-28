@@ -22,6 +22,13 @@ class ProtoWriter {
     _varint(value);
   }
 
+  void bytesField(int field, Uint8List value) {
+    if (value.isEmpty) return;
+    _tag(field, 2);
+    _varint(value.length);
+    _builder.add(value);
+  }
+
   void _tag(int field, int wireType) => _varint((field << 3) | wireType);
 
   void _varint(int value) {
@@ -68,12 +75,16 @@ class ProtoReader {
     switch (wireType) {
       case 0:
         _varint();
+        break;
       case 1:
         _offset += 8;
+        break;
       case 2:
         _offset += _varint();
+        break;
       case 5:
         _offset += 4;
+        break;
       default:
         throw FormatException('Unsupported protobuf wire type: $wireType');
     }
@@ -148,22 +159,31 @@ SingboxApiStatus decodeStatus(Uint8List bytes) {
     switch (field.number) {
       case 1:
         memory = reader.readVarint();
+        break;
       case 2:
         goroutines = reader.readVarint();
+        break;
       case 3:
         connectionsIn = reader.readVarint();
+        break;
       case 4:
         connectionsOut = reader.readVarint();
+        break;
       case 5:
         trafficAvailable = reader.readBool();
+        break;
       case 6:
         uplink = reader.readVarint();
+        break;
       case 7:
         downlink = reader.readVarint();
+        break;
       case 8:
         uplinkTotal = reader.readVarint();
+        break;
       case 9:
         downlinkTotal = reader.readVarint();
+        break;
       default:
         reader.skip(field.wireType);
     }
@@ -218,8 +238,10 @@ SingboxApiConnectionEvents decodeConnectionEvents(Uint8List bytes) {
     switch (field.number) {
       case 1:
         events.add(_decodeConnectionEvent(reader.readBytes()));
+        break;
       case 2:
         reset = reader.readBool();
+        break;
       default:
         reader.skip(field.wireType);
     }
@@ -240,16 +262,22 @@ SingboxApiGroup _decodeGroup(Uint8List bytes) {
     switch (field.number) {
       case 1:
         tag = reader.readString();
+        break;
       case 2:
         type = reader.readString();
+        break;
       case 3:
         selectable = reader.readBool();
+        break;
       case 4:
         selected = reader.readString();
+        break;
       case 5:
         isExpand = reader.readBool();
+        break;
       case 6:
         items.add(_decodeGroupItem(reader.readBytes()));
+        break;
       default:
         reader.skip(field.wireType);
     }
@@ -275,12 +303,16 @@ SingboxApiGroupItem _decodeGroupItem(Uint8List bytes) {
     switch (field.number) {
       case 1:
         tag = reader.readString();
+        break;
       case 2:
         type = reader.readString();
+        break;
       case 3:
         urlTestTime = reader.readVarint();
+        break;
       case 4:
         urlTestDelay = reader.readVarint();
+        break;
       default:
         reader.skip(field.wireType);
     }
@@ -306,16 +338,22 @@ SingboxApiConnectionEvent _decodeConnectionEvent(Uint8List bytes) {
     switch (field.number) {
       case 1:
         type = reader.readVarint();
+        break;
       case 2:
         id = reader.readString();
+        break;
       case 3:
         connection = _decodeConnection(reader.readBytes());
+        break;
       case 4:
         uplinkDelta = reader.readVarint();
+        break;
       case 5:
         downlinkDelta = reader.readVarint();
+        break;
       case 6:
-        closedAt = reader.readVarint();
+        closedAt = _normalizeUnixSeconds(reader.readVarint());
+        break;
       default:
         reader.skip(field.wireType);
     }
@@ -356,42 +394,61 @@ SingboxApiConnection _decodeConnection(Uint8List bytes) {
     switch (field.number) {
       case 1:
         id = reader.readString();
+        break;
       case 2:
         inbound = reader.readString();
+        break;
       case 3:
         inboundType = reader.readString();
+        break;
       case 5:
         network = reader.readString();
+        break;
       case 6:
         source = reader.readString();
+        break;
       case 7:
         destination = reader.readString();
+        break;
       case 8:
         domain = reader.readString();
+        break;
       case 9:
         protocol = reader.readString();
+        break;
       case 11:
         fromOutbound = reader.readString();
+        break;
       case 12:
-        createdAt = reader.readVarint();
+        createdAt = _normalizeUnixSeconds(reader.readVarint());
+        break;
       case 13:
-        closedAt = reader.readVarint();
+        closedAt = _normalizeUnixSeconds(reader.readVarint());
+        break;
       case 14:
         uplink = reader.readVarint();
+        break;
       case 15:
         downlink = reader.readVarint();
+        break;
       case 16:
         uplinkTotal = reader.readVarint();
+        break;
       case 17:
         downlinkTotal = reader.readVarint();
+        break;
       case 18:
         rule = reader.readString();
+        break;
       case 19:
         outbound = reader.readString();
+        break;
       case 20:
         outboundType = reader.readString();
+        break;
       case 21:
         chainList.add(reader.readString());
+        break;
       default:
         reader.skip(field.wireType);
     }
@@ -417,4 +474,18 @@ SingboxApiConnection _decodeConnection(Uint8List bytes) {
     outboundType: outboundType,
     chainList: chainList,
   );
+}
+
+int _normalizeUnixSeconds(int timestamp) {
+  if (timestamp <= 0) return 0;
+  if (timestamp >= 1000000000000000000) {
+    return timestamp ~/ 1000000000;
+  }
+  if (timestamp >= 1000000000000000) {
+    return timestamp ~/ 1000000;
+  }
+  if (timestamp >= 1000000000000) {
+    return timestamp ~/ 1000;
+  }
+  return timestamp;
 }

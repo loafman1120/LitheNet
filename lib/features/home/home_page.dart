@@ -5,6 +5,7 @@ import '../../app/router.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/utils/format_bytes.dart';
 import '../../data/models/ip_info.dart';
+import '../../data/models/app_settings.dart';
 import '../../repositories/proxy_repository.dart';
 import 'data/ip_info_service.dart';
 
@@ -101,7 +102,12 @@ class _HomePageState extends State<HomePage> {
                     !repo.running &&
                     repo.status == 'Stopped') ...[
                   const SizedBox(height: AppSpacing.sectionGap),
-                  ConnectionErrorBanner(message: repo.message),
+                  ConnectionErrorBanner(
+                    message: repo.message,
+                    onElevate: repo.canRequestTunElevation
+                        ? repo.requestTunElevation
+                        : null,
+                  ),
                 ],
               ],
             ),
@@ -166,15 +172,23 @@ class CurrentProfileCard extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.itemGap),
             _InfoRow(
-              icon: Icons.speed,
-              label: 'Port',
-              value: '${repository.mixedPort}',
+              icon: repository.proxyMode == ProxyMode.tun
+                  ? Icons.alt_route
+                  : Icons.speed,
+              label: 'Mode',
+              value: repository.proxyMode.label,
             ),
             const SizedBox(height: AppSpacing.smallGap),
             _InfoRow(
-              icon: Icons.place_outlined,
-              label: 'Listen',
-              value: repository.listenAddress,
+              icon: repository.proxyMode == ProxyMode.tun
+                  ? Icons.admin_panel_settings_outlined
+                  : Icons.place_outlined,
+              label: repository.proxyMode == ProxyMode.tun
+                  ? 'Privilege'
+                  : 'Listen',
+              value: repository.proxyMode == ProxyMode.tun
+                  ? 'Elevate on demand'
+                  : '${repository.listenAddress}:${repository.mixedPort}',
             ),
           ],
         ),
@@ -459,9 +473,14 @@ class QuickActionsGrid extends StatelessWidget {
 }
 
 class ConnectionErrorBanner extends StatelessWidget {
-  const ConnectionErrorBanner({required this.message, super.key});
+  const ConnectionErrorBanner({
+    required this.message,
+    this.onElevate,
+    super.key,
+  });
 
   final String message;
+  final Future<void> Function()? onElevate;
 
   @override
   Widget build(BuildContext context) {
@@ -487,10 +506,16 @@ class ConnectionErrorBanner extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(color: theme.colorScheme.onErrorContainer),
         ),
-        trailing: Icon(
-          Icons.chevron_right,
-          color: theme.colorScheme.onErrorContainer,
-        ),
+        trailing: onElevate == null
+            ? Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onErrorContainer,
+              )
+            : FilledButton.icon(
+                onPressed: onElevate,
+                icon: const Icon(Icons.admin_panel_settings_outlined, size: 18),
+                label: const Text('Elevate'),
+              ),
         onTap: () => context.go(AppRoute.logs.path),
       ),
     );
