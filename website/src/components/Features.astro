@@ -1,0 +1,30 @@
+---
+import FeatureCard from './FeatureCard.astro';
+
+const { lang, t } = Astro.props;
+
+const features = [
+  { icon: 'hub', title: t['features.proxy.title'], desc: t['features.proxy.desc'] },
+  { icon: 'rss', title: t['features.subs.title'], desc: t['features.subs.desc'] },
+  { icon: 'receipt', title: t['features.logs.title'], desc: t['features.logs.desc'] },
+  { icon: 'palette', title: t['features.theme.title'], desc: t['features.theme.desc'] },
+];
+---
+
+<section id="features" class="relative">
+  <!-- Background gradient -->
+  <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
+
+  <div class="section-container">
+    <div class="reveal text-center">
+      <h2 class="section-title">{t['features.title']}</h2>
+      <p class="section-subtitle mx-auto">{t['screenshots.desc']}</p>
+    </div>
+
+    <div class="mt-16 grid gap-6 sm:grid-cols-2">
+      {features.map((f, i) => (
+        <FeatureCard title={f.title} desc={f.desc} icon={f.icon} index={i} />
+      ))}
+    </div>
+  </div>
+</section>

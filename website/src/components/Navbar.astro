@@ -1,0 +1,69 @@
+---
+import { siteConfig } from '../data/site';
+import LanguageSwitch from './LanguageSwitch.astro';
+
+const { lang, t } = Astro.props;
+const isHome = Astro.url.pathname === `/${lang}/` || Astro.url.pathname === `/${lang}`;
+---
+
+<nav class="fixed top-0 left-0 right-0 z-50 glass">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+    <!-- Logo -->
+    <a href={`/${lang}/`} class="flex items-center gap-2.5 group">
+      <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-xs font-extrabold text-white transition-transform group-hover:scale-105">
+        LN
+      </div>
+      <span class="text-lg font-bold text-slate-100">LitheNet</span>
+    </a>
+
+    <!-- Nav Links -->
+    <div class="hidden md:flex items-center gap-6">
+      <a href="#features" class="text-sm text-slate-400 transition-colors hover:text-white">
+        {t['nav.features']}
+      </a>
+      <a href="#download" class="text-sm text-slate-400 transition-colors hover:text-white">
+        {t['nav.download']}
+      </a>
+      <a
+        href={siteConfig.github}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-sm text-slate-400 transition-colors hover:text-white"
+      >
+        GitHub
+      </a>
+      <LanguageSwitch lang={lang} />
+    </div>
+
+    <!-- Mobile menu button -->
+    <button
+      id="mobile-menu-btn"
+      class="md:hidden p-2 text-slate-400 hover:text-white"
+      aria-label="Toggle menu"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Mobile menu -->
+  <div id="mobile-menu" class="hidden md:hidden border-t border-slate-800">
+    <div class="flex flex-col gap-3 px-6 py-4">
+      <a href="#features" class="text-sm text-slate-400 hover:text-white">{t['nav.features']}</a>
+      <a href="#download" class="text-sm text-slate-400 hover:text-white">{t['nav.download']}</a>
+      <a href={siteConfig.github} target="_blank" rel="noopener noreferrer" class="text-sm text-slate-400 hover:text-white">GitHub</a>
+      <LanguageSwitch lang={lang} />
+    </div>
+  </div>
+</nav>
+
+<script>
+  const btn = document.getElementById('mobile-menu-btn');
+  const menu = document.getElementById('mobile-menu');
+  btn?.addEventListener('click', () => {
+    menu?.classList.toggle('hidden');
+  });
+</script>

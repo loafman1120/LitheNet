@@ -41,6 +41,10 @@ migrate_working_dir/
 *.a
 *.exe
 
+# Website build output
+website/dist/
+website/.wrangler/
+
 # App/runtime state
 cache.db
 configuration.json

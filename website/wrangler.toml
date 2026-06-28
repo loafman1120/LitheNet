@@ -1,0 +1,9 @@
+# Cloudflare Pages configuration
+# https://developers.cloudflare.com/pages/configuration/
+
+name = "lithenet-website"
+compatibility_date = "2026-06-28"
+
+# Static asset serving
+[assets]
+directory = "./dist"

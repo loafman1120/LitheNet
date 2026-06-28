@@ -1,0 +1,72 @@
+---
+const { lang, t } = Astro.props;
+---
+
+<section class="relative overflow-hidden">
+  <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
+
+  <div class="section-container">
+    <div class="reveal text-center">
+      <h2 class="section-title">{t['screenshots.title']}</h2>
+      <p class="section-subtitle mx-auto">{t['screenshots.desc']}</p>
+    </div>
+
+    <!-- Screenshot mockup -->
+    <div class="reveal reveal-delay-2 mt-16 relative mx-auto max-w-4xl">
+      <!-- Glow behind -->
+      <div class="absolute inset-0 rounded-2xl bg-brand-500/10 blur-[60px]"></div>
+
+      <!-- Window chrome -->
+      <div class="relative rounded-2xl border border-slate-700/50 bg-slate-900/80 shadow-2xl shadow-brand-500/10 backdrop-blur-sm overflow-hidden">
+        <!-- Title bar -->
+        <div class="flex items-center gap-2 border-b border-slate-800 px-4 py-3">
+          <div class="h-3 w-3 rounded-full bg-red-500/80"></div>
+          <div class="h-3 w-3 rounded-full bg-yellow-500/80"></div>
+          <div class="h-3 w-3 rounded-full bg-green-500/80"></div>
+          <span class="ml-3 text-xs text-slate-500 font-mono">LitheNet</span>
+        </div>
+
+        <!-- Content placeholder -->
+        <div class="aspect-video bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+          <img
+            src="/placeholder.svg"
+            alt="LitheNet Application Screenshot"
+            class="w-full h-full object-cover opacity-80"
+            loading="lazy"
+          />
+        </div>
+      </div>
+
+      <!-- Floating elements -->
+      <div class="absolute -top-4 -right-4 rounded-xl glass px-4 py-2 text-xs font-medium text-slate-300 hidden md:block animate-float">
+        <span class="text-emerald-400">●</span> Connected
+      </div>
+      <div class="absolute -bottom-4 -left-4 rounded-xl glass px-4 py-2 text-xs font-medium text-slate-300 hidden md:block animate-float-delayed">
+        ↓ 2.4 MB/s ↑ 856 KB/s
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  @keyframes float-delayed {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  .animate-float-delayed {
+    animation: float-delayed 3s ease-in-out infinite 1.5s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-float, .animate-float-delayed {
+      animation: none;
+    }
+  }
+</style>

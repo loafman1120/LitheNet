@@ -1,0 +1,29 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Navbar from '../../components/Navbar.astro';
+import Hero from '../../components/Hero.astro';
+import Features from '../../components/Features.astro';
+import ScreenshotShowcase from '../../components/ScreenshotShowcase.astro';
+import TechHighlights from '../../components/TechHighlights.astro';
+import DownloadSection from '../../components/DownloadSection.astro';
+import Footer from '../../components/Footer.astro';
+import ScrollReveal from '../../components/ScrollReveal.astro';
+import { siteConfig } from '../../data/site';
+
+import en from '../../i18n/en.json';
+const t = en;
+const lang = 'en';
+---
+
+<Layout title={`${siteConfig.title} — ${siteConfig.description.en}`} description={siteConfig.description.en} lang={lang}>
+  <Navbar lang={lang} t={t} />
+  <main>
+    <Hero lang={lang} t={t} />
+    <Features lang={lang} t={t} />
+    <ScreenshotShowcase lang={lang} t={t} />
+    <TechHighlights lang={lang} t={t} />
+    <DownloadSection lang={lang} t={t} />
+  </main>
+  <Footer lang={lang} t={t} />
+  <ScrollReveal />
+</Layout>
