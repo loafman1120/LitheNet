@@ -47,7 +47,7 @@ class SingboxProxyRepository extends ProxyRepository {
   bool get coreLoaded => _core != null;
 
   @override
-  bool get running => _isServiceRunning(_service);
+  bool get running => isSingboxServiceRunning(_service);
 
   @override
   bool get systemProxyEnabled => _systemProxyEnabled;
@@ -55,7 +55,7 @@ class SingboxProxyRepository extends ProxyRepository {
   @override
   bool get canRequestTunElevation =>
       _proxyMode == ProxyMode.tun &&
-      _isTunPermissionError(_message) &&
+      isTunPermissionError(_message) &&
       (Platform.isWindows || Platform.isLinux);
 
   @override
@@ -140,7 +140,7 @@ class SingboxProxyRepository extends ProxyRepository {
     notifyListeners();
 
     final service = _service;
-    if (!_isServiceRunning(service)) {
+    if (!isSingboxServiceRunning(service)) {
       return;
     }
 
@@ -159,11 +159,11 @@ class SingboxProxyRepository extends ProxyRepository {
     }
     await _guard(() async {
       if (Platform.isWindows) {
-        await _restartWindowsAsAdministrator();
+        await restartWindowsAsAdministrator();
         return;
       }
       if (Platform.isLinux) {
-        await _restartLinuxWithPkexec();
+        await restartLinuxWithPkexec();
         return;
       }
       throw UnsupportedError(
@@ -231,7 +231,7 @@ class SingboxProxyRepository extends ProxyRepository {
   Future<void> reload() async {
     await _guard(() {
       final service = _service;
-      if (service == null || !_isServiceRunning(service)) {
+      if (service == null || !isSingboxServiceRunning(service)) {
         throw SingboxException(
           'service is not running',
           kind: SingboxErrorKind.serviceState,
@@ -382,7 +382,7 @@ class SingboxProxyRepository extends ProxyRepository {
 
   String _friendlyErrorMessage(Object error) {
     final message = error.toString();
-    if (_proxyMode == ProxyMode.tun && _isTunPermissionError(message)) {
+    if (_proxyMode == ProxyMode.tun && isTunPermissionError(message)) {
       if (Platform.isWindows) {
         return 'TUN needs administrator permission. Restart LitheNet as administrator to continue.';
       }
@@ -394,245 +394,10 @@ class SingboxProxyRepository extends ProxyRepository {
     return message;
   }
 
-  bool _isTunPermissionError(String message) {
-    return message.contains('platform.permission_denied') ||
-        message.contains('Access is denied') ||
-        message.contains('administrator permission') ||
-        message.contains('elevated network permission') ||
-        message.contains('operation not permitted') ||
-        message.contains('permission denied');
-  }
-
-  Future<void> _restartWindowsAsAdministrator() async {
-    final executable = Platform.resolvedExecutable;
-    final workingDirectory = File(executable).parent.path;
-    final command = 'Start-Process '
-        '-FilePath ${_powerShellString(executable)} '
-        '-WorkingDirectory ${_powerShellString(workingDirectory)} '
-        '-Verb RunAs';
-    final result = await Process.run(
-      'powershell.exe',
-      [
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-Command',
-        command,
-      ],
-    );
-    if (result.exitCode != 0) {
-      throw SingboxException(
-        'Administrator restart was cancelled or failed.${_processFailureDetails(result)}',
-        kind: SingboxErrorKind.permission,
-      );
-    }
-    exit(0);
-  }
-
-  String _powerShellString(String value) {
-    return "'${value.replaceAll("'", "''")}'";
-  }
-
-  String _processFailureDetails(ProcessResult result) {
-    final details = [
-      result.stderr.toString().trim(),
-      result.stdout.toString().trim(),
-    ].where((line) => line.isNotEmpty).join(' ');
-    if (details.isEmpty) {
-      return '';
-    }
-    return ' $details';
-  }
-
-  Future<void> _restartLinuxWithPkexec() async {
-    final environment = <String, String>{
-      if (Platform.environment['DISPLAY'] case final display?)
-        'DISPLAY': display,
-      if (Platform.environment['WAYLAND_DISPLAY'] case final wayland?)
-        'WAYLAND_DISPLAY': wayland,
-      if (Platform.environment['XAUTHORITY'] case final xauthority?)
-        'XAUTHORITY': xauthority,
-      if (Platform.environment['XDG_RUNTIME_DIR'] case final runtimeDir?)
-        'XDG_RUNTIME_DIR': runtimeDir,
-    };
-    final result = await Process.run(
-      'pkexec',
-      [
-        'env',
-        ...environment.entries.map((entry) => '${entry.key}=${entry.value}'),
-        Platform.resolvedExecutable,
-      ],
-      runInShell: true,
-    );
-    if (result.exitCode != 0) {
-      throw SingboxException(
-        'Elevated restart was cancelled or failed.',
-        kind: SingboxErrorKind.permission,
-      );
-    }
-    exit(0);
-  }
-
   String _normalizedConfig() {
     final decoded = jsonDecode(_configJson);
     final normalized = const JsonEncoder.withIndent('  ').convert(decoded);
     return _apiConfigInjector.inject(normalized, _apiEndpoint);
-  }
-
-  static String _buildDirectConfig({
-    required String listenAddress,
-    required int mixedPort,
-    required ProxyMode proxyMode,
-  }) {
-    final inbound = switch (proxyMode) {
-      ProxyMode.mixed => {
-          'type': 'mixed',
-          'tag': 'mixed-in',
-          'listen': listenAddress,
-          'listen_port': mixedPort,
-        },
-      ProxyMode.tun => {
-          'type': 'tun',
-          'tag': 'tun-in',
-          'address': ['172.19.0.1/30'],
-          'auto_route': true,
-          'strict_route': true,
-        },
-    };
-    final route = switch (proxyMode) {
-      ProxyMode.mixed => {'final': 'direct'},
-      ProxyMode.tun => {
-          'auto_detect_interface': true,
-          'rules': [
-            {
-              'inbound': 'tun-in',
-              'action': 'sniff',
-            },
-          ],
-          'final': 'direct',
-        },
-    };
-    return const JsonEncoder.withIndent('  ').convert({
-      'log': {'level': 'info'},
-      'inbounds': [inbound],
-      'outbounds': [
-        {'type': 'direct', 'tag': 'direct'}
-      ],
-      'route': route,
-    });
-  }
-
-  Directory _ensureAppDirectory() {
-    final home = Platform.environment['USERPROFILE'] ??
-        Platform.environment['HOME'] ??
-        Directory.current.path;
-    final separator = Platform.pathSeparator;
-    final dir = Directory('$home$separator.lithenet');
-    dir.createSync(recursive: true);
-    return dir;
-  }
-
-  void _startMockTraffic() {
-    _trafficTimer?.cancel();
-    _trafficTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      _traffic = _traffic.copyWith(
-        uploadBytes: _traffic.uploadBytes + 48 * 1024,
-        downloadBytes: _traffic.downloadBytes + 192 * 1024,
-        activeConnections: 4,
-      );
-      notifyListeners();
-    });
-  }
-
-  void _startApiClient() {
-    _stopApiClient();
-    final client = SingboxApiClient(endpoint: _apiEndpoint);
-    _apiClient = client;
-    _statusSubscription = client.subscribeStatus().listen(
-          _handleApiStatus,
-          onError: _handleApiError,
-        );
-    _connectionsSubscription = client.subscribeConnections().listen(
-          _handleConnectionEvents,
-          onError: _handleApiError,
-        );
-    _groupsSubscription = client.subscribeGroups().listen(
-      (groups) {
-        _apiGroups = groups;
-        notifyListeners();
-      },
-      onError: _handleApiError,
-    );
-    _outboundsSubscription = client.subscribeOutbounds().listen(
-      (outbounds) {
-        _apiOutbounds = outbounds;
-        notifyListeners();
-      },
-      onError: _handleApiError,
-    );
-  }
-
-  void _restartApiClient() {
-    if (!running) {
-      return;
-    }
-    _startApiClient();
-  }
-
-  void _stopApiClient() {
-    _statusSubscription?.cancel();
-    _statusSubscription = null;
-    _connectionsSubscription?.cancel();
-    _connectionsSubscription = null;
-    _groupsSubscription?.cancel();
-    _groupsSubscription = null;
-    _outboundsSubscription?.cancel();
-    _outboundsSubscription = null;
-    _apiClient?.close();
-    _apiClient = null;
-    _stopMockTraffic();
-  }
-
-  void _handleApiStatus(SingboxApiStatus status) {
-    _stopMockTraffic();
-    _traffic = TrafficSnapshot(
-      uploadBytes: status.uplinkTotal,
-      downloadBytes: status.downlinkTotal,
-      activeConnections: status.connectionsIn + status.connectionsOut,
-    );
-    notifyListeners();
-  }
-
-  void _handleConnectionEvents(Object event) {
-    if (event is! SingboxApiConnectionEvents) {
-      return;
-    }
-    if (event.reset) {
-      _connections.clear();
-    }
-    for (final connectionEvent in event.events) {
-      final connection = connectionEvent.connection;
-      if (connectionEvent.type == 2) {
-        _connections.remove(connectionEvent.id);
-      } else if (connection != null) {
-        _connections[connection.id] = connection;
-      }
-    }
-    notifyListeners();
-  }
-
-  void _handleApiError(Object error) {
-    _appendLog(LogLevel.warning, 'api', error.toString());
-    if (_traffic == TrafficSnapshot.zero && _trafficTimer == null) {
-      _startMockTraffic();
-    }
-    notifyListeners();
-  }
-
-  void _stopMockTraffic() {
-    _trafficTimer?.cancel();
-    _trafficTimer = null;
-    _traffic = _traffic.copyWith(activeConnections: 0);
   }
 
   void _startLogStream(SingboxService service) {
@@ -696,10 +461,6 @@ class SingboxProxyRepository extends ProxyRepository {
     }
   }
 
-  bool _isServiceRunning(SingboxService? service) {
-    return service?.state().running ?? false;
-  }
-
   String _runningMessage() {
     return switch (_proxyMode) {
       ProxyMode.mixed =>
@@ -715,8 +476,8 @@ class SingboxProxyRepository extends ProxyRepository {
       notifyListeners();
       return;
     }
-    final message = _cleanLogMessage(event.message);
-    _appendLog(_mapLogLevel(event, message), 'core', message);
+    final message = cleanSingboxLogMessage(event.message);
+    _appendLog(mapSingboxLogLevel(event, message), 'core', message);
     notifyListeners();
   }
 
@@ -734,45 +495,7 @@ class SingboxProxyRepository extends ProxyRepository {
     }
   }
 
-  String _cleanLogMessage(String message) {
-    return message.replaceAll(
-      RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]'),
-      '',
-    );
-  }
-
-  LogLevel _mapLogLevel(SingboxLogEvent event, String message) {
-    final parsed = _parseLogLevel(message);
-    if (parsed != null) {
-      return parsed;
-    }
-
-    final levelName = event.levelName.toLowerCase();
-    if (levelName.contains('error') || levelName.contains('fatal')) {
-      return LogLevel.error;
-    }
-    if (levelName.contains('warn')) {
-      return LogLevel.warning;
-    }
-    if (levelName.contains('debug')) {
-      return LogLevel.debug;
-    }
-    if (levelName.contains('trace')) {
-      return LogLevel.trace;
-    }
-    return LogLevel.info;
-  }
-
-  LogLevel? _parseLogLevel(String message) {
-    final match = RegExp(r'^\s*(TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL)\b')
-        .firstMatch(message.toUpperCase());
-    return switch (match?.group(1)) {
-      'TRACE' => LogLevel.trace,
-      'DEBUG' => LogLevel.debug,
-      'INFO' => LogLevel.info,
-      'WARN' || 'WARNING' => LogLevel.warning,
-      'ERROR' || 'FATAL' => LogLevel.error,
-      _ => null,
-    };
+  void _notifyRepositoryListeners() {
+    notifyListeners();
   }
 }
