@@ -404,26 +404,44 @@ class SingboxProxyRepository extends ProxyRepository {
   }
 
   Future<void> _restartWindowsAsAdministrator() async {
+    final executable = Platform.resolvedExecutable;
+    final workingDirectory = File(executable).parent.path;
+    final command = 'Start-Process '
+        '-FilePath ${_powerShellString(executable)} '
+        '-WorkingDirectory ${_powerShellString(workingDirectory)} '
+        '-Verb RunAs';
     final result = await Process.run(
-      'powershell',
+      'powershell.exe',
       [
         '-NoProfile',
         '-ExecutionPolicy',
         'Bypass',
         '-Command',
-        r'Start-Process -Verb RunAs -FilePath $args[0] -WorkingDirectory $args[1]',
-        Platform.resolvedExecutable,
-        Directory.current.path,
+        command,
       ],
-      runInShell: true,
     );
     if (result.exitCode != 0) {
       throw SingboxException(
-        'Administrator restart was cancelled or failed.',
+        'Administrator restart was cancelled or failed.${_processFailureDetails(result)}',
         kind: SingboxErrorKind.permission,
       );
     }
     exit(0);
+  }
+
+  String _powerShellString(String value) {
+    return "'${value.replaceAll("'", "''")}'";
+  }
+
+  String _processFailureDetails(ProcessResult result) {
+    final details = [
+      result.stderr.toString().trim(),
+      result.stdout.toString().trim(),
+    ].where((line) => line.isNotEmpty).join(' ');
+    if (details.isEmpty) {
+      return '';
+    }
+    return ' $details';
   }
 
   Future<void> _restartLinuxWithPkexec() async {
