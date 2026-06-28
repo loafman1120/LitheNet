@@ -3,7 +3,4 @@
 
 name = "lithenet-website"
 compatibility_date = "2026-06-28"
-
-# Static asset serving
-[assets]
-directory = "./dist"
+pages_build_output_dir = "./dist"
