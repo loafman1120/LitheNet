@@ -1,5 +1,6 @@
 ---
 // Redirect root to /en/ (with base path support)
 const base = import.meta.env.BASE_URL || '/';
-return Astro.redirect(`${base}en/`);
+const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+return Astro.redirect(`${normalizedBase}en/`);
 ---
