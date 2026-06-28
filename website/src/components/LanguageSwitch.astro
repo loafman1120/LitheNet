@@ -1,10 +1,11 @@
 ---
 const lang = Astro.props.lang || 'en';
 const currentPath = Astro.url.pathname;
+const base = import.meta.env.BASE_URL || '/';
 
 const otherLang = lang === 'en' ? 'zh' : 'en';
 const otherLabel = lang === 'en' ? '中文' : 'EN';
-const otherPath = currentPath.replace(`/${lang}/`, `/${otherLang}/`);
+const otherPath = currentPath.replace(`${base}${lang}/`, `${base}${otherLang}/`);
 ---
 
 <a
