@@ -21,7 +21,7 @@ windows/    Windows desktop runner
 LitheNet consumes the published `singbox_ffi` Flutter FFI plugin from pub.dev:
 
 ```yaml
-singbox_ffi: ^0.1.2
+singbox_ffi: ^0.1.6
 ```
 
 ## Native Core
@@ -41,6 +41,20 @@ directory and let Flutter's generated plugin CMake bundle it.
 
 The app loads the bundled plugin core with `SingboxFfi.openBundled()`. It does
 not expose process-symbol/static mode in the UI.
+
+Runtime paths and local API behavior:
+
+- Settings live under the platform application support directory in
+  `LitheNet/settings.json`.
+- The sing-box core `basePath` and `workingPath` use
+  `LitheNet/core/` under the same application support root.
+- Temporary files use the system temp directory under `lithenet/`.
+- The local sing-box API listens only on loopback and gets an available port at
+  service start instead of assuming `9090`.
+- The command server and API bearer secrets are generated per app process and
+  kept in memory only.
+- API failures surface as unavailable statistics; synthetic traffic is disabled
+  unless a repository is explicitly created in demo mode.
 
 GitHub Actions downloads every `singboxffi-*` artifact from the latest
 successful `loafman1120/singbox-ffi` Build workflow, including:

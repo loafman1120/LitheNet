@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 class SingboxApiEndpoint {
   const SingboxApiEndpoint({
     this.host = '127.0.0.1',
-    this.port = 9090,
-    this.secret = 'lithenet-api',
+    this.port = 0,
+    this.secret = '',
     this.dashboardEnabled = false,
   });
 

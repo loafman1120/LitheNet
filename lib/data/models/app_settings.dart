@@ -12,6 +12,17 @@ enum ThemeModeOption {
       };
 }
 
+extension ThemeModeOptionParsing on ThemeModeOption {
+  static ThemeModeOption fromName(String? name) {
+    for (final value in ThemeModeOption.values) {
+      if (value.name == name) {
+        return value;
+      }
+    }
+    return ThemeModeOption.system;
+  }
+}
+
 enum ProxyMode {
   mixed,
   tun;
@@ -20,6 +31,17 @@ enum ProxyMode {
         ProxyMode.mixed => 'System proxy',
         ProxyMode.tun => 'TUN',
       };
+}
+
+extension ProxyModeParsing on ProxyMode {
+  static ProxyMode fromName(String? name) {
+    for (final value in ProxyMode.values) {
+      if (value.name == name) {
+        return value;
+      }
+    }
+    return ProxyMode.mixed;
+  }
 }
 
 @immutable
@@ -67,6 +89,39 @@ class AppSettings {
       ipv6: ipv6 ?? this.ipv6,
       systemProxy: systemProxy ?? this.systemProxy,
       perAppProxy: perAppProxy ?? this.perAppProxy,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'themeMode': themeMode.name,
+        'startOnBoot': startOnBoot,
+        'enableNotifications': enableNotifications,
+        'listenAddress': listenAddress,
+        'mixedPort': mixedPort,
+        'proxyMode': proxyMode.name,
+        'ipv6': ipv6,
+        'systemProxy': systemProxy,
+        'perAppProxy': perAppProxy,
+      };
+
+  factory AppSettings.fromJson(Map<String, dynamic> json) {
+    final listenAddress = json['listenAddress'] as String?;
+    final mixedPort = json['mixedPort'] as int?;
+
+    return AppSettings(
+      themeMode: ThemeModeOptionParsing.fromName(json['themeMode'] as String?),
+      startOnBoot: json['startOnBoot'] as bool? ?? false,
+      enableNotifications: json['enableNotifications'] as bool? ?? true,
+      listenAddress: listenAddress == null || listenAddress.trim().isEmpty
+          ? '127.0.0.1'
+          : listenAddress.trim(),
+      mixedPort: mixedPort == null || mixedPort <= 0 || mixedPort >= 65536
+          ? 2080
+          : mixedPort,
+      proxyMode: ProxyModeParsing.fromName(json['proxyMode'] as String?),
+      ipv6: json['ipv6'] as bool? ?? false,
+      systemProxy: json['systemProxy'] as bool? ?? true,
+      perAppProxy: json['perAppProxy'] as bool? ?? false,
     );
   }
 }

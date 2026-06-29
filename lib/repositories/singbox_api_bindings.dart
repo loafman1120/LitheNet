@@ -80,8 +80,12 @@ extension _SingboxApiBindings on SingboxProxyRepository {
 
   void _handleApiError(Object error) {
     _appendLog(LogLevel.warning, 'api', error.toString());
-    if (_traffic == TrafficSnapshot.zero && _trafficTimer == null) {
+    _message = 'API unavailable; traffic statistics are not available.';
+    if (_demoMode &&
+        _traffic == TrafficSnapshot.zero &&
+        _trafficTimer == null) {
       _startMockTraffic();
+      _appendLog(LogLevel.warning, 'api', 'Using demo traffic fallback.');
     }
     _notifyRepositoryListeners();
   }

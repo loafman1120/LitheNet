@@ -2,12 +2,23 @@ part of 'proxy_repository.dart';
 
 /// Concrete repository backed by the bundled singbox-ffi core.
 class SingboxProxyRepository extends ProxyRepository {
-  /// Creates a repository with a direct local mixed proxy config.
-  SingboxProxyRepository()
-      : _configJson = _buildDirectConfig(
-          listenAddress: '127.0.0.1',
-          mixedPort: 2080,
-          proxyMode: ProxyMode.mixed,
+  /// Creates a repository with a direct local proxy config.
+  SingboxProxyRepository({
+    AppSettings initialSettings = const AppSettings(),
+    AppStoragePaths? storagePaths,
+    bool demoMode = false,
+  })  : _systemProxyEnabled = initialSettings.systemProxy,
+        _proxyMode = initialSettings.proxyMode,
+        _listenAddress = initialSettings.listenAddress,
+        _mixedPort = initialSettings.mixedPort,
+        _storagePaths = storagePaths,
+        _demoMode = demoMode,
+        _commandSecret = _generateRuntimeSecret(),
+        _apiEndpoint = SingboxApiEndpoint(secret: _generateRuntimeSecret()),
+        _configJson = _buildDirectConfig(
+          listenAddress: initialSettings.listenAddress,
+          mixedPort: initialSettings.mixedPort,
+          proxyMode: initialSettings.proxyMode,
         );
 
   SingboxFfi? _core;
@@ -20,20 +31,23 @@ class SingboxProxyRepository extends ProxyRepository {
   StreamSubscription<List<SingboxApiGroup>>? _groupsSubscription;
   StreamSubscription<List<SingboxApiGroupItem>>? _outboundsSubscription;
   bool _busy = false;
-  bool _systemProxyEnabled = true;
-  ProxyMode _proxyMode = ProxyMode.mixed;
+  bool _systemProxyEnabled;
+  ProxyMode _proxyMode;
   String _status = 'Stopped';
   String _message =
       'Load the bundled singbox-ffi core, validate a config, then start.';
-  String _listenAddress = '127.0.0.1';
-  int _mixedPort = 2080;
+  String _listenAddress;
+  int _mixedPort;
   String _configJson;
   String? _loadedCoreSource;
   String? _singboxVersion;
   String? _goVersion;
-  final SingboxApiEndpoint _apiEndpoint = const SingboxApiEndpoint();
+  SingboxApiEndpoint _apiEndpoint;
   final SingboxApiConfigInjector _apiConfigInjector =
       const SingboxApiConfigInjector();
+  final AppStoragePaths? _storagePaths;
+  final bool _demoMode;
+  final String _commandSecret;
   TrafficSnapshot _traffic = TrafficSnapshot.zero;
   final Map<String, SingboxApiConnection> _connections = {};
   List<SingboxApiGroup> _apiGroups = const [];
@@ -191,14 +205,19 @@ class SingboxProxyRepository extends ProxyRepository {
   @override
   Future<void> loadCore() async {
     await _guard(() {
-      _openCore();
+      _runMeasuredSync('loadCore', () {
+        _openCore();
+      });
     });
   }
 
   @override
   Future<void> validateConfig() async {
-    await _guard(() {
-      _ensureCore().checkConfig(_normalizedConfig());
+    await _guard(() async {
+      await _ensureApiEndpoint();
+      _runMeasuredSync('validateConfig', () {
+        _ensureCore().checkConfig(_normalizedConfig());
+      });
       _message = 'Config is valid.';
       notifyListeners();
     });
@@ -207,10 +226,13 @@ class SingboxProxyRepository extends ProxyRepository {
   @override
   Future<void> start() async {
     await _guard(() async {
-      final core = _ensureCore();
-      final config = _normalizedConfig();
-      core.checkConfig(config);
-      final service = core.start(config);
+      await _ensureApiEndpoint(verifyAvailable: true);
+      final service = _runMeasuredSync('start', () {
+        final core = _ensureCore();
+        final config = _normalizedConfig();
+        core.checkConfig(config);
+        return core.start(config);
+      });
 
       _service = service;
       _status = 'Running';
@@ -237,9 +259,11 @@ class SingboxProxyRepository extends ProxyRepository {
           kind: SingboxErrorKind.serviceState,
         );
       }
-      final config = _normalizedConfig();
-      _ensureCore().checkConfig(config);
-      service.reload(config);
+      _runMeasuredSync('reload', () {
+        final config = _normalizedConfig();
+        _ensureCore().checkConfig(config);
+        service.reload(config);
+      });
       _message = 'Config reloaded.';
       _appendLog(LogLevel.info, 'core', 'Config reloaded.');
       _restartApiClient();
@@ -335,7 +359,7 @@ class SingboxProxyRepository extends ProxyRepository {
 
     final core = SingboxFfi.openBundled();
     const source = 'singbox_ffi plugin bundle';
-    final appDir = _ensureAppDirectory();
+    final coreDir = _ensureCoreDirectory(_storagePaths);
     final tempDir = Directory(
       '${Directory.systemTemp.path}${Platform.pathSeparator}lithenet',
     );
@@ -343,10 +367,10 @@ class SingboxProxyRepository extends ProxyRepository {
 
     core.init(
       SingboxInitOptions(
-        basePath: appDir.path,
-        workingPath: appDir.path,
+        basePath: coreDir.path,
+        workingPath: coreDir.path,
         tempPath: tempDir.path,
-        commandSecret: 'lithenet-local',
+        commandSecret: _commandSecret,
         logMaxLines: 1000,
         oomKillerDisabled: true,
       ),
@@ -359,6 +383,48 @@ class SingboxProxyRepository extends ProxyRepository {
     _message = 'Core loaded from $_loadedCoreSource.';
     notifyListeners();
     return core;
+  }
+
+  Future<void> _ensureApiEndpoint({bool verifyAvailable = false}) async {
+    if (_apiEndpoint.port > 0 && !verifyAvailable) {
+      return;
+    }
+
+    final port = await _findAvailableLoopbackPort(
+      preferredPort: verifyAvailable ? _apiEndpoint.port : 0,
+    );
+    if (port == _apiEndpoint.port) {
+      return;
+    }
+
+    _apiEndpoint = SingboxApiEndpoint(
+      host: _apiEndpoint.host,
+      port: port,
+      secret: _apiEndpoint.secret,
+      dashboardEnabled: _apiEndpoint.dashboardEnabled,
+    );
+    _appendLog(
+      LogLevel.info,
+      'api',
+      'Selected local API endpoint ${_apiEndpoint.host}:$port.',
+    );
+  }
+
+  T _runMeasuredSync<T>(String operation, T Function() action) {
+    final stopwatch = Stopwatch()..start();
+    _message = 'Running $operation...';
+    _appendLog(LogLevel.info, 'core', 'Starting $operation.');
+    notifyListeners();
+    try {
+      return action();
+    } finally {
+      stopwatch.stop();
+      _appendLog(
+        LogLevel.info,
+        'core',
+        '$operation completed in ${stopwatch.elapsedMilliseconds} ms.',
+      );
+    }
   }
 
   Future<void> _guard(FutureOr<void> Function() action) async {

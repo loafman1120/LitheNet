@@ -14,25 +14,12 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  late final SettingsController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = SettingsController();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final repository = ProxyRepositoryScope.of(context);
+    final controller = SettingsControllerScope.of(context);
     return AnimatedBuilder(
-      animation: _controller,
+      animation: controller,
       builder: (context, _) {
         return Scaffold(
           appBar: AppBar(title: const Text('Settings')),
@@ -51,16 +38,16 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: Icons.power_settings_new,
                     title: 'Start on boot',
                     trailing: Switch(
-                      value: _controller.settings.startOnBoot,
-                      onChanged: _controller.setStartOnBoot,
+                      value: controller.settings.startOnBoot,
+                      onChanged: controller.setStartOnBoot,
                     ),
                   ),
                   SettingsTile(
                     icon: Icons.notifications_outlined,
                     title: 'Notifications',
                     trailing: Switch(
-                      value: _controller.settings.enableNotifications,
-                      onChanged: _controller.setNotifications,
+                      value: controller.settings.enableNotifications,
+                      onChanged: controller.setNotifications,
                     ),
                   ),
                 ],
@@ -84,8 +71,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: Icons.language,
                     title: 'IPv6',
                     trailing: Switch(
-                      value: _controller.settings.ipv6,
-                      onChanged: _controller.setIPv6,
+                      value: controller.settings.ipv6,
+                      onChanged: controller.setIPv6,
                     ),
                   ),
                   SettingsTile(
@@ -96,7 +83,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       onChanged: (v) {
                         _showReconnectWarning(
                           () {
-                            _controller.setSystemProxy(v);
+                            controller.setSystemProxy(v);
                             repository.setSystemProxyEnabled(v);
                           },
                         );
@@ -111,7 +98,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   SettingsTile(
                     icon: Icons.dark_mode_outlined,
                     title: 'Theme',
-                    subtitle: _controller.settings.themeMode.label,
+                    subtitle: controller.settings.themeMode.label,
                     onTap: _showThemeDialog,
                   ),
                 ],
@@ -144,6 +131,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showThemeDialog() {
+    final controller = SettingsControllerScope.of(context);
     showDialog(
       context: context,
       builder: (dialogContext) => SimpleDialog(
@@ -151,12 +139,12 @@ class _SettingsPageState extends State<SettingsPage> {
         children: ThemeModeOption.values.map((mode) {
           return SimpleDialogOption(
             onPressed: () {
-              _controller.setThemeMode(mode);
+              controller.setThemeMode(mode);
               Navigator.pop(dialogContext);
             },
             child: Row(
               children: [
-                if (_controller.settings.themeMode == mode)
+                if (controller.settings.themeMode == mode)
                   const Icon(Icons.check, size: 20)
                 else
                   const SizedBox(width: 20),
@@ -172,6 +160,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _showProxyModeDialog() {
     final repository = ProxyRepositoryScope.of(context);
+    final controller = SettingsControllerScope.of(context);
     showDialog(
       context: context,
       builder: (dialogContext) => SimpleDialog(
@@ -182,7 +171,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Navigator.pop(dialogContext);
               _showReconnectWarning(
                 () {
-                  _controller.setProxyMode(mode);
+                  controller.setProxyMode(mode);
                   repository.setProxyMode(mode);
                 },
               );
@@ -205,6 +194,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _showPortDialog() {
     final repository = ProxyRepositoryScope.of(context);
+    final settingsController = SettingsControllerScope.of(context);
     final controller = TextEditingController(
       text: repository.mixedPort.toString(),
     );
@@ -226,7 +216,7 @@ class _SettingsPageState extends State<SettingsPage> {
             onPressed: () {
               final port = int.tryParse(controller.text);
               if (port != null && port > 0 && port < 65536) {
-                _controller.setMixedPort(port);
+                settingsController.setMixedPort(port);
                 repository.updateEndpoint(
                   listenAddress: repository.listenAddress,
                   mixedPort: port,

@@ -53,3 +53,50 @@ Directory _ensureAppDirectory() {
   dir.createSync(recursive: true);
   return dir;
 }
+
+Directory _ensureCoreDirectory([AppStoragePaths? storagePaths]) {
+  final dir = storagePaths?.coreDirectory ?? _ensureAppDirectory();
+  dir.createSync(recursive: true);
+  return dir;
+}
+
+Future<int> _findAvailableLoopbackPort({
+  int preferredPort = 0,
+  int attempts = 20,
+}) async {
+  if (preferredPort <= 0) {
+    final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final port = socket.port;
+    await socket.close();
+    return port;
+  }
+
+  for (var offset = 0; offset < attempts; offset += 1) {
+    final port = preferredPort + offset;
+    try {
+      final socket =
+          await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+      await socket.close();
+      return port;
+    } on SocketException {
+      continue;
+    }
+  }
+
+  final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+  final port = socket.port;
+  await socket.close();
+  return port;
+}
+
+String _generateRuntimeSecret([int bytes = 24]) {
+  const alphabet =
+      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  final random = Random.secure();
+  return String.fromCharCodes(
+    List<int>.generate(
+      bytes,
+      (_) => alphabet.codeUnitAt(random.nextInt(alphabet.length)),
+    ),
+  );
+}

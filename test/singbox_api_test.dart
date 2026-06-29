@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:lithenet/data/models/app_settings.dart';
+import 'package:lithenet/data/singbox_api/singbox_api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lithenet/data/singbox_api/singbox_api_config.dart';
 import 'package:lithenet/data/singbox_api/singbox_api_models.dart';
@@ -8,6 +10,14 @@ import 'package:lithenet/data/singbox_api/singbox_api_proto.dart';
 import 'package:lithenet/repositories/proxy_repository.dart';
 
 void main() {
+  test('api endpoint defaults avoid fixed port and secret', () {
+    const endpoint = SingboxApiEndpoint();
+
+    expect(endpoint.host, '127.0.0.1');
+    expect(endpoint.port, 0);
+    expect(endpoint.secret, isEmpty);
+  });
+
   test('injects api service into sing-box config', () {
     final config = const JsonEncoder.withIndent('  ').convert({
       'log': {'level': 'info'},
@@ -33,6 +43,58 @@ void main() {
     expect(api['listen_port'], 19090);
     expect(api['secret'], 'secret');
     expect(decoded['inbounds'], isNotEmpty);
+  });
+
+  test('api client omits authorization when endpoint secret is empty',
+      () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(server.close);
+
+    var sawAuthorization = false;
+    final serverDone = server.first.then((request) async {
+      sawAuthorization =
+          request.headers.value(HttpHeaders.authorizationHeader) != null;
+      request.response.statusCode = HttpStatus.internalServerError;
+      await request.response.close();
+    });
+
+    final client = SingboxApiClient(
+      endpoint: SingboxApiEndpoint(port: server.port),
+    );
+    addTearDown(client.close);
+
+    await expectLater(
+      client.subscribeGroups().first,
+      throwsA(isA<SingboxApiException>()),
+    );
+    await serverDone;
+
+    expect(sawAuthorization, isFalse);
+  });
+
+  test('api client sends bearer authorization when secret is set', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(server.close);
+
+    String? authorization;
+    final serverDone = server.first.then((request) async {
+      authorization = request.headers.value(HttpHeaders.authorizationHeader);
+      request.response.statusCode = HttpStatus.internalServerError;
+      await request.response.close();
+    });
+
+    final client = SingboxApiClient(
+      endpoint: SingboxApiEndpoint(port: server.port, secret: 'secret'),
+    );
+    addTearDown(client.close);
+
+    await expectLater(
+      client.subscribeGroups().first,
+      throwsA(isA<SingboxApiException>()),
+    );
+    await serverDone;
+
+    expect(authorization, 'Bearer secret');
   });
 
   test('decodes started service status traffic fields', () {
