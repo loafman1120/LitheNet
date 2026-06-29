@@ -16,9 +16,9 @@ const highlights = [
       <div class="h-px flex-1 bg-gradient-to-r from-slate-800 to-transparent sm:max-w-xl"></div>
     </div>
 
-    <div class="mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-800 bg-slate-800 md:grid-cols-4">
+    <div class="mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-800/80 bg-slate-800/35 shadow-2xl shadow-black/20 backdrop-blur-sm md:grid-cols-4">
       {highlights.map((h, i) => (
-        <div class={`reveal reveal-delay-${i + 1} bg-[#0a0e12] p-5`}>
+        <div class={`reveal reveal-delay-${i + 1} bg-[#0a0e12]/68 p-5 backdrop-blur-sm`}>
           <div class={`font-mono text-3xl font-semibold md:text-4xl ${h.tone}`}>
             <span class="counter" data-target={h.value}>0</span>{h.suffix}
           </div>

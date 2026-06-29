@@ -11,13 +11,13 @@ const { lang, t } = Astro.props;
       <p class="section-subtitle mx-auto">{t['download.desc']}</p>
     </div>
 
-    <div class="mx-auto mt-12 grid max-w-4xl gap-px overflow-hidden rounded-lg border border-slate-800 bg-slate-800 sm:grid-cols-3">
+    <div class="mx-auto mt-12 grid max-w-4xl gap-px overflow-hidden rounded-lg border border-slate-800/80 bg-slate-800/35 shadow-2xl shadow-black/20 backdrop-blur-sm sm:grid-cols-3">
       {siteConfig.platforms.map((platform, i) => (
         <a
           href={siteConfig.github + '/releases/latest'}
           target="_blank"
           rel="noopener noreferrer"
-          class={`reveal reveal-delay-${i + 1} group relative bg-[#0a0e12] p-6 transition-colors duration-300 hover:bg-brand-300/[0.035]`}
+          class={`reveal reveal-delay-${i + 1} group relative bg-[#0a0e12]/68 p-6 backdrop-blur-sm transition-colors duration-300 hover:bg-brand-300/[0.045]`}
         >
           <div class="mb-5 flex h-10 w-10 items-center justify-center rounded-md border border-slate-700 bg-slate-950/50 text-slate-300 transition-colors group-hover:border-brand-200/30 group-hover:text-brand-100" set:html={platform.icon} />
 

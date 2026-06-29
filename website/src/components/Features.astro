@@ -18,7 +18,7 @@ const features = [
       <p class="section-subtitle !mx-0">{t['screenshots.desc']}</p>
     </div>
 
-    <div class="mt-12 grid gap-px overflow-hidden rounded-lg border border-slate-800 bg-slate-800 sm:grid-cols-2">
+    <div class="mt-12 grid gap-px overflow-hidden rounded-lg border border-slate-800/80 bg-slate-800/35 shadow-2xl shadow-black/20 backdrop-blur-sm sm:grid-cols-2">
       {features.map((f, i) => (
         <FeatureCard title={f.title} desc={f.desc} icon={f.icon} index={i} />
       ))}

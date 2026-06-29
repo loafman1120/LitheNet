@@ -11,7 +11,7 @@ const icons: Record<string, string> = {
 const delayClass = `reveal-delay-${(index % 4) + 1}`;
 ---
 
-<div class={`reveal ${delayClass} group relative rounded-lg border border-slate-800/90 bg-white/[0.015] p-6 transition-all duration-300 hover:border-brand-300/30 hover:bg-brand-300/[0.035]`}>
+<div class={`reveal ${delayClass} group relative rounded-lg border border-slate-800/75 bg-[#0a0f14]/68 p-6 backdrop-blur-sm transition-all duration-300 hover:border-brand-300/30 hover:bg-brand-300/[0.045]`}>
   <div class="mb-5 inline-flex items-center justify-center rounded-md border border-brand-200/15 bg-brand-300/10 p-2.5 text-brand-200 transition-colors group-hover:border-brand-200/30">
     <Fragment set:html={icons[icon] || icons.hub} />
   </div>

@@ -173,19 +173,34 @@ body {
   mask-image: linear-gradient(to bottom, black, transparent 82%);
 }
 
-.hero-network-scene {
+.site-network-scene {
   pointer-events: none;
-  opacity: 0.82;
+  opacity: 0.72;
   mix-blend-mode: screen;
-  mask-image:
-    radial-gradient(circle at 70% 38%, black 0%, black 28%, transparent 70%),
-    linear-gradient(to bottom, black, transparent 88%);
+  mask-image: radial-gradient(circle at 50% 40%, black 0%, black 42%, transparent 82%);
 }
 
-.hero-network-scene canvas {
+.site-network-scene canvas {
   display: block;
   height: 100%;
   width: 100%;
+}
+
+.site-grid {
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(to bottom, black, rgba(0, 0, 0, 0.84) 45%, rgba(0, 0, 0, 0.42) 100%);
+}
+
+.site-vignette {
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(34, 211, 238, 0.1), transparent 34rem),
+    radial-gradient(circle at 78% 22%, rgba(16, 185, 129, 0.055), transparent 28rem),
+    linear-gradient(180deg, rgba(8, 11, 15, 0.1) 0%, rgba(8, 11, 15, 0.58) 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -197,7 +212,7 @@ body {
     transform: none;
     transition: none;
   }
-  .hero-network-scene {
+  .site-network-scene {
     display: none;
   }
 }

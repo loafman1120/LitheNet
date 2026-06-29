@@ -1,0 +1,173 @@
+<div id="site-network-scene" class="site-network-scene fixed inset-0 z-0" aria-hidden="true"></div>
+<div class="site-grid fixed inset-0 z-0" aria-hidden="true"></div>
+<div class="site-vignette fixed inset-0 z-0" aria-hidden="true"></div>
+
+<script>
+  const container = document.getElementById('site-network-scene');
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (container && !prefersReducedMotion) {
+    const THREE = await import('three');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    const renderer = new THREE.WebGLRenderer({
+      alpha: true,
+      antialias: true,
+      powerPreference: 'high-performance',
+    });
+
+    renderer.setClearColor(0x000000, 0);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
+    container.appendChild(renderer.domElement);
+
+    const pointCount = 96;
+    const positions = new Float32Array(pointCount * 3);
+    const basePositions = new Float32Array(pointCount * 3);
+    const phases = new Float32Array(pointCount);
+    const linePositions = new Float32Array(pointCount * 2 * 3);
+    const lineColors = new Float32Array(pointCount * 2 * 3);
+
+    for (let i = 0; i < pointCount; i += 1) {
+      const stride = i * 3;
+      const x = (Math.random() - 0.5) * 13.8;
+      const y = (Math.random() - 0.5) * 7.4;
+      const z = -2.4 - Math.random() * 5.4;
+
+      basePositions[stride] = x;
+      basePositions[stride + 1] = y;
+      basePositions[stride + 2] = z;
+      positions[stride] = x;
+      positions[stride + 1] = y;
+      positions[stride + 2] = z;
+      phases[i] = Math.random() * Math.PI * 2;
+    }
+
+    const pointGeometry = new THREE.BufferGeometry();
+    pointGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const pointMaterial = new THREE.PointsMaterial({
+      color: 0x67e8f9,
+      size: 0.036,
+      transparent: true,
+      opacity: 0.58,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+
+    const points = new THREE.Points(pointGeometry, pointMaterial);
+    scene.add(points);
+
+    const lineGeometry = new THREE.BufferGeometry();
+    lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+    lineGeometry.setAttribute('color', new THREE.BufferAttribute(lineColors, 3));
+    lineGeometry.setDrawRange(0, 0);
+
+    const lineMaterial = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.24,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+
+    const lineMesh = new THREE.LineSegments(lineGeometry, lineMaterial);
+    scene.add(lineMesh);
+
+    const mouse = new THREE.Vector2(0, 0);
+    let width = 1;
+    let height = 1;
+    let animationFrame = 0;
+
+    const setSize = () => {
+      const rect = container.getBoundingClientRect();
+      width = Math.max(rect.width, 1);
+      height = Math.max(rect.height, 1);
+      camera.aspect = width / height;
+      camera.position.set(width < 760 ? 0 : 0.7, 0, 6.8);
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height, false);
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      mouse.x = (event.clientX / Math.max(window.innerWidth, 1) - 0.5) * 2;
+      mouse.y = -(event.clientY / Math.max(window.innerHeight, 1) - 0.5) * 2;
+    };
+
+    const connectLines = () => {
+      let segmentCount = 0;
+      const maxDistance = width < 760 ? 1.18 : 1.42;
+
+      for (let i = 0; i < pointCount; i += 1) {
+        const ai = i * 3;
+        for (let j = i + 1; j < pointCount; j += 1) {
+          const bi = j * 3;
+          const dx = positions[ai] - positions[bi];
+          const dy = positions[ai + 1] - positions[bi + 1];
+          const dz = positions[ai + 2] - positions[bi + 2];
+          const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+          if (distance < maxDistance && segmentCount < pointCount) {
+            const offset = segmentCount * 6;
+            const alpha = 1 - distance / maxDistance;
+            const color = 0.22 + alpha * 0.78;
+
+            linePositions[offset] = positions[ai];
+            linePositions[offset + 1] = positions[ai + 1];
+            linePositions[offset + 2] = positions[ai + 2];
+            linePositions[offset + 3] = positions[bi];
+            linePositions[offset + 4] = positions[bi + 1];
+            linePositions[offset + 5] = positions[bi + 2];
+
+            lineColors[offset] = 0.06 * color;
+            lineColors[offset + 1] = 0.72 * color;
+            lineColors[offset + 2] = 0.84 * color;
+            lineColors[offset + 3] = 0.14 * color;
+            lineColors[offset + 4] = 0.95 * color;
+            lineColors[offset + 5] = 0.9 * color;
+            segmentCount += 1;
+          }
+        }
+      }
+
+      lineGeometry.setDrawRange(0, segmentCount * 2);
+      lineGeometry.attributes.position.needsUpdate = true;
+      lineGeometry.attributes.color.needsUpdate = true;
+    };
+
+    const animate = (now: number) => {
+      const time = now * 0.0003;
+
+      for (let i = 0; i < pointCount; i += 1) {
+        const stride = i * 3;
+        const phase = phases[i];
+        positions[stride] = basePositions[stride] + Math.sin(time + phase) * 0.18 + mouse.x * 0.06;
+        positions[stride + 1] = basePositions[stride + 1] + Math.cos(time * 1.25 + phase) * 0.1 + mouse.y * 0.04;
+        positions[stride + 2] = basePositions[stride + 2] + Math.sin(time * 0.7 + phase) * 0.12;
+      }
+
+      pointGeometry.attributes.position.needsUpdate = true;
+      connectLines();
+      points.rotation.y = Math.sin(time * 0.55) * 0.08;
+      lineMesh.rotation.y = points.rotation.y;
+      renderer.render(scene, camera);
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    setSize();
+    connectLines();
+    animationFrame = requestAnimationFrame(animate);
+
+    window.addEventListener('resize', setSize);
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    document.addEventListener('astro:before-swap', () => {
+      cancelAnimationFrame(animationFrame);
+      window.removeEventListener('resize', setSize);
+      window.removeEventListener('pointermove', handlePointerMove);
+      renderer.dispose();
+      pointGeometry.dispose();
+      pointMaterial.dispose();
+      lineGeometry.dispose();
+      lineMaterial.dispose();
+    }, { once: true });
+  }
+</script>
