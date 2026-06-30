@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../../app/app_identity.dart';
 import 'singbox_api_models.dart';
 import 'singbox_api_proto.dart';
 
@@ -103,7 +104,7 @@ class SingboxApiClient {
     httpRequest.headers
       ..set(HttpHeaders.contentTypeHeader, 'application/grpc-web+proto')
       ..set('X-Grpc-Web', '1')
-      ..set('X-User-Agent', 'LitheNet')
+      ..set('X-User-Agent', AppIdentity.displayName)
       ..set(HttpHeaders.acceptHeader, 'application/grpc-web+proto');
     if (_endpoint.secret.isNotEmpty) {
       httpRequest.headers.set(

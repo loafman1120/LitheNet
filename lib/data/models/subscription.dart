@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../../app/app_identity.dart';
+
 enum SubscriptionFormat {
   auto,
   clashYaml,
@@ -18,6 +20,19 @@ enum SubscriptionUpdateStatus {
   failed,
 }
 
+class SubscriptionRequestDefaults {
+  const SubscriptionRequestDefaults._();
+
+  static const userAgent = AppIdentity.userAgent;
+
+  static const headers = <String, String>{
+    'Accept': '*/*',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+  };
+}
+
 @immutable
 class Subscription {
   const Subscription({
@@ -29,7 +44,7 @@ class Subscription {
     this.autoUpdate = true,
     this.updateIntervalSeconds = 43200,
     this.headers = const {},
-    this.userAgent = 'LitheNet/0.1',
+    this.userAgent = SubscriptionRequestDefaults.userAgent,
     this.allowInsecureHttp = false,
     this.lastUpdatedAt,
     this.expiresAt,
@@ -201,7 +216,8 @@ class Subscription {
       autoUpdate: json['autoUpdate'] as bool? ?? true,
       updateIntervalSeconds: json['updateIntervalSeconds'] as int? ?? 43200,
       headers: Map<String, String>.from(json['headers'] as Map? ?? const {}),
-      userAgent: json['userAgent'] as String? ?? 'LitheNet/0.1',
+      userAgent:
+          json['userAgent'] as String? ?? SubscriptionRequestDefaults.userAgent,
       allowInsecureHttp: json['allowInsecureHttp'] as bool? ?? false,
       lastUpdatedAt: _parseDate(json['lastUpdatedAt'] as String?),
       expiresAt: _parseDate(json['expiresAt'] as String?),

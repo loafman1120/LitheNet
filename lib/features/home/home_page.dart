@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/app_identity.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../data/models/ip_info.dart';
 import '../../repositories/proxy_repository.dart';
@@ -75,7 +76,7 @@ class _HomePageState extends State<HomePage> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             sliver: SliverToBoxAdapter(
               child: Text(
-                'LitheNet',
+                AppIdentity.displayName,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),

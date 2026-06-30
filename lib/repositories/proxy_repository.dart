@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/widgets.dart';
 import 'package:singbox_ffi/singbox_ffi.dart';
 
+import '../app/app_identity.dart';
 import '../data/models/app_settings.dart';
 import '../data/models/log_entry.dart';
 import '../data/singbox_api/singbox_api_client.dart';

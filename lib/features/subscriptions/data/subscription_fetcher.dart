@@ -41,7 +41,7 @@ class HttpSubscriptionFetcher implements SubscriptionFetcher {
   Future<FetchResult> fetch(Subscription subscription) async {
     final stopwatch = Stopwatch()..start();
     final uri = Uri.tryParse(subscription.url);
-    if (uri == null || !uri.hasAbsolutePath || uri.host.isEmpty) {
+    if (uri == null || uri.host.isEmpty) {
       throw const SubscriptionException(
         SubscriptionErrorCodes.invalidUrl,
         'Subscription URL is invalid.',
@@ -57,10 +57,14 @@ class HttpSubscriptionFetcher implements SubscriptionFetcher {
 
     try {
       final request = await _client.getUrl(uri).timeout(timeout);
-      request.headers.set(HttpHeaders.acceptHeader,
-          'application/yaml,application/json,text/plain;q=0.9,*/*;q=0.8');
+      for (final header in SubscriptionRequestDefaults.headers.entries) {
+        request.headers.set(header.key, header.value);
+      }
       request.headers.set(HttpHeaders.acceptEncodingHeader, 'gzip');
-      request.headers.set(HttpHeaders.userAgentHeader, subscription.userAgent);
+      request.headers.set(
+        HttpHeaders.userAgentHeader,
+        _effectiveUserAgent(subscription.userAgent),
+      );
       for (final header in subscription.headers.entries) {
         request.headers.set(header.key, header.value);
       }
@@ -142,6 +146,16 @@ class HttpSubscriptionFetcher implements SubscriptionFetcher {
       result[name.toLowerCase()] = values.join(',');
     });
     return result;
+  }
+
+  String _effectiveUserAgent(String userAgent) {
+    final trimmed = userAgent.trim();
+    if (trimmed.isEmpty ||
+        trimmed == 'LitheNet/0.1' ||
+        trimmed == 'clash.meta') {
+      return SubscriptionRequestDefaults.userAgent;
+    }
+    return trimmed;
   }
 
   List<int> _decodeBody(Map<String, String> headers, List<int> bytes) {

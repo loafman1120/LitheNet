@@ -48,6 +48,7 @@ class SingboxProxyRepository extends ProxyRepository {
   final AppStoragePaths? _storagePaths;
   final bool _demoMode;
   final String _commandSecret;
+  final String _cacheFileName = _buildRuntimeCacheFileName();
   TrafficSnapshot _traffic = TrafficSnapshot.zero;
   final Map<String, SingboxApiConnection> _connections = {};
   List<SingboxApiGroup> _apiGroups = const [];
@@ -361,7 +362,8 @@ class SingboxProxyRepository extends ProxyRepository {
     const source = 'singbox_ffi plugin bundle';
     final coreDir = _ensureCoreDirectory(_storagePaths);
     final tempDir = Directory(
-      '${Directory.systemTemp.path}${Platform.pathSeparator}lithenet',
+      '${Directory.systemTemp.path}${Platform.pathSeparator}'
+      '${AppIdentity.dartPackageName}',
     );
     tempDir.createSync(recursive: true);
 
@@ -450,10 +452,10 @@ class SingboxProxyRepository extends ProxyRepository {
     final message = error.toString();
     if (_proxyMode == ProxyMode.tun && isTunPermissionError(message)) {
       if (Platform.isWindows) {
-        return 'TUN needs administrator permission. Restart LitheNet as administrator to continue.';
+        return 'TUN needs administrator permission. Restart ${AppIdentity.displayName} as administrator to continue.';
       }
       if (Platform.isLinux) {
-        return 'TUN needs elevated network permission. Restart LitheNet with policy authentication to continue.';
+        return 'TUN needs elevated network permission. Restart ${AppIdentity.displayName} with policy authentication to continue.';
       }
       return 'TUN needs elevated network permission on this platform.';
     }
@@ -462,6 +464,9 @@ class SingboxProxyRepository extends ProxyRepository {
 
   String _normalizedConfig() {
     final decoded = jsonDecode(_configJson);
+    if (decoded is Map<String, dynamic>) {
+      _ensureRuntimeCacheFile(decoded, _cacheFileName);
+    }
     final normalized = const JsonEncoder.withIndent('  ').convert(decoded);
     return _apiConfigInjector.inject(normalized, _apiEndpoint);
   }

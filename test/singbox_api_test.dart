@@ -149,7 +149,9 @@ void main() {
     expect(inbound['tag'], 'tun-in');
     expect(inbound['auto_route'], isTrue);
     expect(inbound['strict_route'], isTrue);
-    expect(inbound['address'], ['172.19.0.1/30']);
+    final addresses = inbound['address'] as List<dynamic>;
+    expect(addresses.single,
+        matches(RegExp(r'^172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.1/30$')));
     expect(inbound.containsKey('sniff'), isFalse);
     expect(route['auto_detect_interface'], isTrue);
     expect(route['rules'], [

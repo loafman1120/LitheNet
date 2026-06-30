@@ -1,7 +1,11 @@
-# LitheNet
+# Lithe
 
-LitheNet is a Flutter desktop proxy client UI powered by the separate
+Lithe is a Flutter desktop proxy client UI powered by the separate
 `loafman1120/singbox-ffi` native core package.
+
+The Dart package and executable remain `lithenet` for compatibility with
+existing imports, scripts, and build outputs. Platform app identifiers use
+`top.loafman.lithe`, and the website is `https://lithe.loafman.top`.
 
 This repository is the app. It does not build the Go FFI core. The native
 `singbox-ffi` binaries are built and released from `loafman1120/singbox-ffi`,
@@ -18,7 +22,7 @@ macos/      macOS desktop runner
 windows/    Windows desktop runner
 ```
 
-LitheNet consumes the published `singbox_ffi` Flutter FFI plugin from pub.dev:
+Lithe consumes the published `singbox_ffi` Flutter FFI plugin from pub.dev:
 
 ```yaml
 singbox_ffi: ^0.1.6
@@ -45,10 +49,12 @@ not expose process-symbol/static mode in the UI.
 Runtime paths and local API behavior:
 
 - Settings live under the platform application support directory in
-  `LitheNet/settings.json`.
+  `Lithe/settings.json`.
 - The sing-box core `basePath` and `workingPath` use
-  `LitheNet/core/` under the same application support root.
+  `Lithe/core/` under the same application support root.
 - Temporary files use the system temp directory under `lithenet/`.
+- Existing `LitheNet`, `.lithenet`, and early `com.example/lithenet/LitheNet`
+  support directories are copied forward when files are missing.
 - The local sing-box API listens only on loopback and gets an available port at
   service start instead of assuming `9090`.
 - The command server and API bearer secrets are generated per app process and
@@ -64,9 +70,9 @@ successful `loafman1120/singbox-ffi` Build workflow, including:
 - Android dynamic artifacts
 - Android static artifacts
 
-The LitheNet workflow stages the Windows DLL into the resolved pub cache copy of
+The Lithe workflow stages the Windows DLL into the resolved pub cache copy of
 `singbox_ffi` before building. The Flutter FFI plugin then contributes it through
-`PLUGIN_BUNDLED_LIBRARIES`; LitheNet does not modify Flutter generated CMake.
+`PLUGIN_BUNDLED_LIBRARIES`; Lithe does not modify Flutter generated CMake.
 
 ## Run The App
 

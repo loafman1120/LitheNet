@@ -1,4 +1,4 @@
-# LitheNet Website
+# Lithe Website
 
 宣传页面，基于 Astro 6 + Tailwind CSS v4 构建，部署在 Cloudflare Pages。
 
@@ -76,9 +76,10 @@ website/
 
 ```typescript
 export const siteConfig = {
-  title: 'LitheNet',
+  title: 'Lithe',
   version: '0.1.0',
   github: 'https://github.com/loafman1120/LitheNet',
+  url: 'https://lithe.loafman.top',
   // ...
 };
 ```
@@ -131,7 +132,7 @@ export const siteConfig = {
 ### 自定义域名
 
 1. 在 Cloudflare Pages 项目设置中添加自定义域名
-2. 配置 DNS 记录（CNAME 指向 `lithenet.pages.dev`）
+2. 配置 DNS 记录（CNAME 指向 Pages 项目域名，例如 `lithenet.pages.dev`）
 3. SSL/TLS 设置为 Full mode
 
 ## 添加新功能区

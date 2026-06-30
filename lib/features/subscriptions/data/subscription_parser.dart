@@ -33,6 +33,43 @@ class ParsedProfile {
   final List<String> groups;
   final String rawText;
   final DateTime createdAt;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'subscriptionId': subscriptionId,
+        'title': title,
+        'format': format.name,
+        'rawHash': rawHash,
+        'nodeCount': nodeCount,
+        'nodes': nodes.map((node) => node.toJson()).toList(),
+        'groups': groups,
+        'rawText': rawText,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory ParsedProfile.fromJson(Map<String, dynamic> json) {
+    return ParsedProfile(
+      id: json['id'] as String,
+      subscriptionId: json['subscriptionId'] as String,
+      title: json['title'] as String? ?? 'Subscription',
+      format: SubscriptionFormat.values.byName(
+        json['format'] as String? ?? SubscriptionFormat.unknown.name,
+      ),
+      rawHash: json['rawHash'] as String? ?? '',
+      nodeCount: json['nodeCount'] as int? ?? 0,
+      nodes: [
+        for (final item in json['nodes'] as List? ?? const [])
+          if (item is Map) ProxyNode.fromJson(Map<String, dynamic>.from(item)),
+      ],
+      groups: [
+        for (final item in json['groups'] as List? ?? const [])
+          if (item is String) item,
+      ],
+      rawText: json['rawText'] as String? ?? '',
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
 }
 
 class AutoSubscriptionParser implements SubscriptionParser {

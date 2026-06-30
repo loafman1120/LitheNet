@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../app_identity.dart';
 import '../router.dart';
 
 class AppShell extends StatelessWidget {
@@ -137,7 +138,7 @@ class _BrandMark extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Tooltip(
-      message: 'LitheNet',
+      message: AppIdentity.displayName,
       child: Container(
         width: 44,
         height: 44,
@@ -147,7 +148,7 @@ class _BrandMark extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
-          'LN',
+          'L',
           style: TextStyle(
             color: colorScheme.onPrimary,
             fontWeight: FontWeight.w800,

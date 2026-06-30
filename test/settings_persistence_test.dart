@@ -17,6 +17,8 @@ void main() {
 
     expect(paths.settingsFile.path,
         '${directory.path}${Platform.pathSeparator}settings.json');
+    expect(paths.subscriptionsFile.path,
+        '${directory.path}${Platform.pathSeparator}subscriptions.json');
     expect(await paths.profilesDirectory.exists(), isTrue);
     expect(await paths.coreDirectory.exists(), isTrue);
   });

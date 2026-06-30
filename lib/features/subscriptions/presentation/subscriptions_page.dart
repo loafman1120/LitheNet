@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/widgets/empty_state.dart';
-import '../../proxies/application/proxy_catalog.dart';
 import '../application/subscriptions_controller.dart';
 import 'widgets/add_subscription_sheet.dart';
 import 'widgets/subscription_card.dart';
@@ -14,24 +13,12 @@ class SubscriptionsPage extends StatefulWidget {
 }
 
 class _SubscriptionsPageState extends State<SubscriptionsPage> {
-  late final SubscriptionsController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = SubscriptionsController();
-  }
+  late SubscriptionsController _controller;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _controller.bindProxyCatalog(ProxyCatalogScope.of(context));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+    _controller = SubscriptionsControllerScope.of(context);
   }
 
   @override
@@ -99,13 +86,22 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
     final url = result['url'];
     if (url == null || url.isEmpty) return;
 
-    await _controller.addSubscription(url, name: result['name']);
+    final added = await _controller.addSubscription(url, name: result['name']);
+    if (!mounted) return;
+    if (!added) {
+      _showError(_controller.lastError ?? 'Subscription was not added.');
+      return;
+    }
+    final error = _controller.lastError;
+    if (error != null && error.isNotEmpty) {
+      _showError(error);
+    }
   }
 
   Future<void> _handleMenu(String action, String id) async {
     switch (action) {
       case 'use':
-        _controller.setActive(id);
+        await _controller.setActive(id);
       case 'update':
         await _controller.updateSubscription(id);
       case 'rename':
@@ -139,11 +135,12 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
-                _controller.renameSubscription(id, name);
+                await _controller.renameSubscription(id, name);
               }
+              if (!mounted) return;
               Navigator.pop(context);
             },
             child: const Text('Save'),
@@ -165,14 +162,21 @@ class _SubscriptionsPageState extends State<SubscriptionsPage> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () {
-              _controller.removeSubscription(id);
+            onPressed: () async {
+              await _controller.removeSubscription(id);
+              if (!mounted) return;
               Navigator.pop(context);
             },
             child: const Text('Delete'),
           ),
         ],
       ),
+    );
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }

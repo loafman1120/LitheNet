@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_spacing.dart';
+import '../../data/subscription_url_normalizer.dart';
 
 class AddSubscriptionSheet extends StatefulWidget {
   const AddSubscriptionSheet({super.key});
@@ -14,6 +15,7 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
   final _urlController = TextEditingController();
   final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _normalizer = const SubscriptionUrlNormalizer();
 
   @override
   void dispose() {
@@ -33,6 +35,7 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
           padding: const EdgeInsets.all(AppSpacing.cardPadding),
           child: Form(
             key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -59,8 +62,7 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
                     if (value == null || value.trim().isEmpty) {
                       return 'URL is required';
                     }
-                    final uri = Uri.tryParse(value.trim());
-                    if (uri == null || !uri.hasAbsolutePath) {
+                    if (!_normalizer.isValid(value)) {
                       return 'Invalid URL';
                     }
                     return null;
@@ -106,9 +108,12 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
+    final normalizedUrl = _normalizer.normalize(_urlController.text);
+    if (normalizedUrl == null) return;
     Navigator.of(context).pop({
-      'url': _urlController.text.trim(),
-      'name': _nameController.text.trim(),
+      'url': normalizedUrl,
+      if (_nameController.text.trim().isNotEmpty)
+        'name': _nameController.text.trim(),
     });
   }
 }

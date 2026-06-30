@@ -5,7 +5,9 @@ import '../data/models/app_settings.dart';
 import '../data/storage/app_storage_paths.dart';
 import '../features/proxies/application/proxy_catalog.dart';
 import '../features/settings/application/settings_controller.dart';
+import '../features/subscriptions/application/subscriptions_controller.dart';
 import '../repositories/proxy_repository.dart';
+import 'app_identity.dart';
 import 'router.dart';
 
 class LitheNetApp extends StatefulWidget {
@@ -13,11 +15,13 @@ class LitheNetApp extends StatefulWidget {
     super.key,
     this.proxyRepository,
     this.settingsController,
+    this.subscriptionsController,
     this.storagePaths,
   });
 
   final ProxyRepository? proxyRepository;
   final SettingsController? settingsController;
+  final SubscriptionsController? subscriptionsController;
   final AppStoragePaths? storagePaths;
 
   @override
@@ -28,6 +32,7 @@ class _LitheNetAppState extends State<LitheNetApp> {
   late final ProxyRepository _proxyRepository;
   late final ProxyCatalog _proxyCatalog;
   late final SettingsController _settingsController;
+  late final SubscriptionsController _subscriptionsController;
   late final AppRouter _appRouter;
 
   @override
@@ -40,6 +45,9 @@ class _LitheNetAppState extends State<LitheNetApp> {
           storagePaths: widget.storagePaths,
         );
     _proxyCatalog = ProxyCatalog();
+    _subscriptionsController =
+        widget.subscriptionsController ?? SubscriptionsController();
+    _subscriptionsController.bindProxyCatalog(_proxyCatalog);
     _appRouter = AppRouter();
   }
 
@@ -47,6 +55,7 @@ class _LitheNetAppState extends State<LitheNetApp> {
   void dispose() {
     _proxyRepository.dispose();
     _proxyCatalog.dispose();
+    _subscriptionsController.dispose();
     _settingsController.dispose();
     super.dispose();
   }
@@ -60,16 +69,19 @@ class _LitheNetAppState extends State<LitheNetApp> {
           controller: _settingsController,
           child: ProxyCatalogScope(
             catalog: _proxyCatalog,
-            child: ProxyRepositoryScope(
-              repository: _proxyRepository,
-              child: MaterialApp.router(
-                title: 'LitheNet',
-                debugShowCheckedModeBanner: false,
-                theme: AppTheme.light,
-                darkTheme: AppTheme.dark,
-                themeMode:
-                    _themeModeFor(_settingsController.settings.themeMode),
-                routerConfig: _appRouter.router,
+            child: SubscriptionsControllerScope(
+              controller: _subscriptionsController,
+              child: ProxyRepositoryScope(
+                repository: _proxyRepository,
+                child: MaterialApp.router(
+                  title: AppIdentity.displayName,
+                  debugShowCheckedModeBanner: false,
+                  theme: AppTheme.light,
+                  darkTheme: AppTheme.dark,
+                  themeMode:
+                      _themeModeFor(_settingsController.settings.themeMode),
+                  routerConfig: _appRouter.router,
+                ),
               ),
             ),
           ),

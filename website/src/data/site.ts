@@ -1,5 +1,5 @@
 export const siteConfig = {
-  title: 'LitheNet',
+  title: 'Lithe',
   description: {
     en: 'A modern, lightweight proxy client built with Flutter and the sing-box core.',
     zh: '基于 Flutter 和 sing-box 核心构建的现代轻量级代理客户端。',
