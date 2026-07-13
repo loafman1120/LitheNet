@@ -85,8 +85,10 @@ class AppStoragePaths {
         continue;
       }
       final relative = entity.path.substring(source.path.length + 1);
-      final target = File('${destination.path}${Platform.pathSeparator}'
-          '${relative.replaceAll(RegExp(r'[\\/]'), Platform.pathSeparator)}');
+      final target = File(
+        '${destination.path}${Platform.pathSeparator}'
+        '${relative.replaceAll(RegExp(r'[\\/]'), Platform.pathSeparator)}',
+      );
       if (await target.exists()) {
         continue;
       }
@@ -143,8 +145,12 @@ class AppStoragePaths {
       if (roaming != null && roaming.trim().isNotEmpty) {
         roots
           ..add(Directory('$roaming${separator}LitheNet'))
-          ..add(Directory('$roaming${separator}com.example'
-              '${separator}lithenet${separator}LitheNet'));
+          ..add(
+            Directory(
+              '$roaming${separator}com.example'
+              '${separator}lithenet${separator}LitheNet',
+            ),
+          );
       }
     }
 
@@ -152,8 +158,12 @@ class AppStoragePaths {
     if (home != null) {
       roots
         ..add(Directory('$home$separator.lithenet'))
-        ..add(Directory('$home$separator.lithenet'
-            '$separator${AppIdentity.legacyDisplayName}'));
+        ..add(
+          Directory(
+            '$home$separator.lithenet'
+            '$separator${AppIdentity.legacyDisplayName}',
+          ),
+        );
     }
 
     return roots;

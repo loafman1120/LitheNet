@@ -21,10 +21,7 @@ class ProxyNodeTile extends StatelessWidget {
 
     return ListTile(
       leading: _CountryFlag(countryCode: node.countryCode, type: node.type),
-      title: Text(
-        node.name,
-        overflow: TextOverflow.ellipsis,
-      ),
+      title: Text(node.name, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         '${node.typeLabel}${node.countryCode != null ? ' · ${node.countryCode}' : ''}',
         style: theme.textTheme.bodySmall?.copyWith(
@@ -63,10 +60,7 @@ class _CountryFlag extends StatelessWidget {
     final code = countryCode;
 
     if (code != null && code.length == 2) {
-      return Text(
-        _flagEmoji(code),
-        style: const TextStyle(fontSize: 24),
-      );
+      return Text(_flagEmoji(code), style: const TextStyle(fontSize: 24));
     }
 
     return Container(

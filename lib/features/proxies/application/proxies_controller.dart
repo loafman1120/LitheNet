@@ -2,8 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../data/models/proxy_group.dart';
 import '../../../data/models/proxy_node.dart';
-import '../../../data/singbox_api/singbox_api_models.dart';
-import '../../../repositories/proxy_repository.dart';
+import '../../../core/runtime/core_controller.dart';
 import 'proxy_catalog.dart';
 
 enum ProxyMode { rule, global, direct }
@@ -16,7 +15,7 @@ class ProxiesController extends ChangeNotifier {
   }
 
   ProxyCatalog? _catalog;
-  ProxyRepository? _repository;
+  CoreController? _core;
   ProxyMode _mode = ProxyMode.rule;
   List<ProxyGroup> _groups = [];
   int _selectedGroupIndex = 0;
@@ -43,14 +42,14 @@ class ProxiesController extends ChangeNotifier {
     _syncFromCatalog();
   }
 
-  void bindRepository(ProxyRepository repository) {
-    if (_repository == repository) {
+  void bindCore(CoreController core) {
+    if (_core == core) {
       return;
     }
-    _repository?.removeListener(_syncFromRepository);
-    _repository = repository;
-    repository.addListener(_syncFromRepository);
-    _syncFromRepository();
+    _core?.removeListener(_syncFromCore);
+    _core = core;
+    core.addListener(_syncFromCore);
+    _syncFromCore();
   }
 
   List<ProxyNode> get filteredNodes {
@@ -61,12 +60,15 @@ class ProxiesController extends ChangeNotifier {
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      nodes = nodes
-          .where((n) =>
-              n.name.toLowerCase().contains(q) ||
-              n.type.toLowerCase().contains(q) ||
-              (n.countryCode?.toLowerCase().contains(q) ?? false))
-          .toList();
+      nodes =
+          nodes
+              .where(
+                (n) =>
+                    n.name.toLowerCase().contains(q) ||
+                    n.type.toLowerCase().contains(q) ||
+                    (n.countryCode?.toLowerCase().contains(q) ?? false),
+              )
+              .toList();
     }
 
     nodes.sort((a, b) {
@@ -102,7 +104,7 @@ class ProxiesController extends ChangeNotifier {
       ],
     );
     notifyListeners();
-    await _repository?.selectOutbound(groupTag: group.id, outboundTag: nodeId);
+    await _core?.selectOutbound(group.id, nodeId);
   }
 
   void setSearchQuery(String query) {
@@ -123,12 +125,7 @@ class ProxiesController extends ChangeNotifier {
       final group = _groups[gi];
       final updatedNodes = <ProxyNode>[];
       for (final node in group.nodes) {
-        await _repository?.urlTest(node.id);
-        final apiNode = _findApiNode(node.id);
-        final latency =
-            apiNode?.urlTestDelay == null || apiNode!.urlTestDelay <= 0
-                ? 50 + (node.name.hashCode % 450)
-                : apiNode.urlTestDelay;
+        final latency = await _core?.testLatency(node.id);
         updatedNodes.add(node.copyWith(latencyMs: latency));
       }
       _groups[gi] = group.copyWith(nodes: updatedNodes);
@@ -145,12 +142,7 @@ class ProxiesController extends ChangeNotifier {
       if (idx < 0) continue;
 
       final node = group.nodes[idx];
-      await _repository?.urlTest(node.id);
-      final apiNode = _findApiNode(node.id);
-      final latency =
-          apiNode?.urlTestDelay == null || apiNode!.urlTestDelay <= 0
-              ? 50 + (node.name.hashCode % 450)
-              : apiNode.urlTestDelay;
+      final latency = await _core?.testLatency(node.id);
       final updated = List<ProxyNode>.from(group.nodes);
       updated[idx] = node.copyWith(latencyMs: latency);
       _groups[gi] = group.copyWith(nodes: updated);
@@ -162,7 +154,7 @@ class ProxiesController extends ChangeNotifier {
   @override
   void dispose() {
     _catalog?.removeListener(_syncFromCatalog);
-    _repository?.removeListener(_syncFromRepository);
+    _core?.removeListener(_syncFromCore);
     super.dispose();
   }
 
@@ -181,57 +173,18 @@ class ProxiesController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _syncFromRepository() {
-    final repository = _repository;
-    if (repository == null || repository.apiGroups.isEmpty) {
+  void _syncFromCore() {
+    final core = _core;
+    if (core == null || core.proxyGroups.isEmpty) {
       return;
     }
     final selectedGroupId = selectedGroup?.id;
-    _groups = [
-      for (final group in repository.apiGroups)
-        ProxyGroup(
-          id: group.tag,
-          name: group.tag,
-          type: group.type,
-          selectedNodeId: group.selected.isEmpty ? null : group.selected,
-          nodes: [
-            for (final item in group.items)
-              ProxyNode(
-                id: item.tag,
-                name: item.tag,
-                type: item.type,
-                latencyMs: item.urlTestDelay <= 0 ? null : item.urlTestDelay,
-                isSelected: item.tag == group.selected,
-                isAvailable: true,
-              ),
-          ],
-        ),
-    ];
+    _groups = core.proxyGroups;
     final index = _groups.indexWhere((group) => group.id == selectedGroupId);
     _selectedGroupIndex = index >= 0 ? index : 0;
     if (_selectedGroupIndex >= _groups.length) {
       _selectedGroupIndex = 0;
     }
     notifyListeners();
-  }
-
-  SingboxApiGroupItem? _findApiNode(String nodeId) {
-    final repository = _repository;
-    if (repository == null) {
-      return null;
-    }
-    for (final outbound in repository.apiOutbounds) {
-      if (outbound.tag == nodeId) {
-        return outbound;
-      }
-    }
-    for (final group in repository.apiGroups) {
-      for (final item in group.items) {
-        if (item.tag == nodeId) {
-          return item;
-        }
-      }
-    }
-    return null;
   }
 }

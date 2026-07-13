@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../../core/runtime/core_controller.dart';
 import '../../../data/models/log_entry.dart';
-import '../../../repositories/proxy_repository.dart';
 
 class LogsController extends ChangeNotifier {
   final List<LogEntry> _entries = [];
@@ -12,7 +12,7 @@ class LogsController extends ChangeNotifier {
   bool _paused = false;
   Timer? _demoTimer;
   int _demoCounter = 0;
-  ProxyRepository? _repository;
+  CoreController? _core;
 
   List<LogEntry> get entries => List.unmodifiable(_entries);
   LogLevel? get levelFilter => _levelFilter;
@@ -28,11 +28,14 @@ class LogsController extends ChangeNotifier {
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      list = list
-          .where((e) =>
-              e.message.toLowerCase().contains(q) ||
-              e.source.toLowerCase().contains(q))
-          .toList();
+      list =
+          list
+              .where(
+                (e) =>
+                    e.message.toLowerCase().contains(q) ||
+                    e.source.toLowerCase().contains(q),
+              )
+              .toList();
     }
 
     return list;
@@ -51,15 +54,15 @@ class LogsController extends ChangeNotifier {
   void togglePause() {
     _paused = !_paused;
     if (!_paused) {
-      _syncFromRepository();
+      _syncFromCore();
     }
     notifyListeners();
   }
 
   void clear() {
-    final repository = _repository;
-    if (repository != null) {
-      repository.clearLogs();
+    final core = _core;
+    if (core != null) {
+      core.clearLogs();
       return;
     }
     _entries.clear();
@@ -74,13 +77,13 @@ class LogsController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void bind(ProxyRepository repository) {
-    if (_repository == repository) {
+  void bind(CoreController core) {
+    if (_core == core) {
       return;
     }
-    _repository?.removeListener(_syncFromRepository);
-    _repository = repository..addListener(_syncFromRepository);
-    _syncFromRepository();
+    _core?.removeListener(_syncFromCore);
+    _core = core..addListener(_syncFromCore);
+    _syncFromCore();
   }
 
   String exportLogs({bool sanitize = false}) {
@@ -91,7 +94,8 @@ class LogsController extends ChangeNotifier {
         msg = _sanitize(msg);
       }
       buffer.writeln(
-          '${entry.timeString} [${entry.level.label}] ${entry.source} $msg');
+        '${entry.timeString} [${entry.level.label}] ${entry.source} $msg',
+      );
     }
     return buffer.toString();
   }
@@ -100,9 +104,13 @@ class LogsController extends ChangeNotifier {
     return text
         .replaceAllMapped(RegExp(r'https?://[^\s]+'), (m) => '[URL]')
         .replaceAllMapped(
-            RegExp(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b'), (m) => '[IP]')
-        .replaceAllMapped(RegExp(r'token=[^\s&]+', caseSensitive: false),
-            (m) => 'token=[HIDDEN]');
+          RegExp(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b'),
+          (m) => '[IP]',
+        )
+        .replaceAllMapped(
+          RegExp(r'token=[^\s&]+', caseSensitive: false),
+          (m) => 'token=[HIDDEN]',
+        );
   }
 
   void startDemoLogs() {
@@ -122,12 +130,14 @@ class LogsController extends ChangeNotifier {
 
     _demoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       _demoCounter++;
-      addEntry(LogEntry(
-        time: DateTime.now(),
-        level: levels[_demoCounter % levels.length],
-        source: sources[_demoCounter % sources.length],
-        message: messages[_demoCounter % messages.length],
-      ));
+      addEntry(
+        LogEntry(
+          time: DateTime.now(),
+          level: levels[_demoCounter % levels.length],
+          source: sources[_demoCounter % sources.length],
+          message: messages[_demoCounter % messages.length],
+        ),
+      );
     });
   }
 
@@ -138,22 +148,22 @@ class LogsController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _repository?.removeListener(_syncFromRepository);
+    _core?.removeListener(_syncFromCore);
     stopDemoLogs();
     super.dispose();
   }
 
-  void _syncFromRepository() {
+  void _syncFromCore() {
     if (_paused) {
       return;
     }
-    final repository = _repository;
-    if (repository == null) {
+    final core = _core;
+    if (core == null) {
       return;
     }
     _entries
       ..clear()
-      ..addAll(repository.logs);
+      ..addAll(core.logs);
     notifyListeners();
   }
 }

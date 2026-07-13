@@ -37,10 +37,10 @@ class DefaultSubscriptionRepository implements SubscriptionRepository {
     SubscriptionParser? parser,
     SubscriptionHeaderParser? headerParser,
     AtomicProfileStore? store,
-  })  : _fetcher = fetcher ?? HttpSubscriptionFetcher(),
-        _parser = parser ?? const AutoSubscriptionParser(),
-        _headerParser = headerParser ?? const SubscriptionHeaderParser(),
-        _store = store ?? InMemoryProfileStore();
+  }) : _fetcher = fetcher ?? HttpSubscriptionFetcher(),
+       _parser = parser ?? const AutoSubscriptionParser(),
+       _headerParser = headerParser ?? const SubscriptionHeaderParser(),
+       _store = store ?? InMemoryProfileStore();
 
   final SubscriptionFetcher _fetcher;
   final SubscriptionParser _parser;

@@ -1,13 +1,12 @@
 export const siteConfig = {
   title: 'Lithe',
   description: {
-    en: 'A modern, lightweight proxy client built with Flutter and the sing-box core.',
-    zh: '基于 Flutter 和 sing-box 核心构建的现代轻量级代理客户端。',
+    en: 'A modern, lightweight proxy client built with Flutter and Rustbox.',
+    zh: '基于 Flutter 和 Rustbox 构建的现代轻量级代理客户端。',
   },
   url: 'https://lithe.loafman.top',
   github: 'https://github.com/loafman1120/LitheNet',
-  singbox: 'https://github.com/SagerNet/sing-box',
-  version: '0.1.0',
+  version: '0.2.0',
   license: 'GPL-3.0',
   brandColor: '#22d3ee',
   platforms: [

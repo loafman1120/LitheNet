@@ -1,23 +1,8 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../data/models/proxy_group.dart';
 import '../../../data/models/proxy_node.dart';
 import '../../subscriptions/data/subscription_parser.dart';
-
-class ProxyCatalogScope extends InheritedNotifier<ProxyCatalog> {
-  const ProxyCatalogScope({
-    required ProxyCatalog catalog,
-    required super.child,
-    super.key,
-  }) : super(notifier: catalog);
-
-  static ProxyCatalog of(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<ProxyCatalogScope>();
-    assert(scope != null, 'ProxyCatalogScope was not found in the tree.');
-    return scope!.notifier!;
-  }
-}
 
 class ProxyCatalog extends ChangeNotifier {
   List<ProxyGroup> _groups = [];
@@ -38,10 +23,7 @@ class ProxyCatalog extends ChangeNotifier {
         id: 'all',
         name: 'All',
         type: 'select',
-        selectedNodeId: _restoreSelection(
-          previousSelections['all'],
-          nodes,
-        ),
+        selectedNodeId: _restoreSelection(previousSelections['all'], nodes),
         nodes: _markSelected(nodes, previousSelections['all']),
       ),
     ];

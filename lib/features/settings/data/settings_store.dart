@@ -48,7 +48,7 @@ class SettingsStore implements AppSettingsStore {
 
 class MemorySettingsStore implements AppSettingsStore {
   MemorySettingsStore([AppSettings initialSettings = const AppSettings()])
-      : _settings = initialSettings;
+    : _settings = initialSettings;
 
   AppSettings _settings;
 

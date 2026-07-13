@@ -52,9 +52,7 @@ class FileProfileStore implements AtomicProfileStore {
     }
     try {
       final decoded = jsonDecode(await file.readAsString());
-      return ParsedProfile.fromJson(
-        Map<String, dynamic>.from(decoded as Map),
-      );
+      return ParsedProfile.fromJson(Map<String, dynamic>.from(decoded as Map));
     } catch (_) {
       return null;
     }
@@ -102,13 +100,17 @@ class FileProfileStore implements AtomicProfileStore {
   }
 
   File _profileFile(String subscriptionId) {
-    return File('${directory.path}${Platform.pathSeparator}'
-        '${_safeFileName(subscriptionId)}.json');
+    return File(
+      '${directory.path}${Platform.pathSeparator}'
+      '${_safeFileName(subscriptionId)}.json',
+    );
   }
 
   File _backupFile(String subscriptionId) {
-    return File('${directory.path}${Platform.pathSeparator}'
-        '${_safeFileName(subscriptionId)}.bak.json');
+    return File(
+      '${directory.path}${Platform.pathSeparator}'
+      '${_safeFileName(subscriptionId)}.bak.json',
+    );
   }
 
   String _safeFileName(String value) {

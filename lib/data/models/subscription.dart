@@ -12,13 +12,7 @@ enum SubscriptionFormat {
   unknown,
 }
 
-enum SubscriptionUpdateStatus {
-  idle,
-  updating,
-  updated,
-  noChange,
-  failed,
-}
+enum SubscriptionUpdateStatus { idle, updating, updated, noChange, failed }
 
 class SubscriptionRequestDefaults {
   const SubscriptionRequestDefaults._();
@@ -108,11 +102,13 @@ class Subscription {
     }
 
     final userInfo = uri.userInfo.isEmpty ? '' : 'redacted';
-    final query = uri.queryParameters.entries.map((entry) {
-      final key = entry.key;
-      final value = _isSensitiveKey(key) ? '***' : entry.value;
-      return '$key=$value';
-    }).join('&');
+    final query = uri.queryParameters.entries
+        .map((entry) {
+          final key = entry.key;
+          final value = _isSensitiveKey(key) ? '***' : entry.value;
+          return '$key=$value';
+        })
+        .join('&');
 
     return uri.replace(userInfo: userInfo, query: query).toString();
   }
@@ -175,32 +171,32 @@ class Subscription {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'url': url,
-        'formatHint': formatHint.name,
-        'updateStatus': updateStatus.name,
-        'autoUpdate': autoUpdate,
-        'updateIntervalSeconds': updateIntervalSeconds,
-        'headers': headers,
-        'userAgent': userAgent,
-        'allowInsecureHttp': allowInsecureHttp,
-        'lastUpdatedAt': lastUpdatedAt?.toIso8601String(),
-        'expiresAt': expiresAt?.toIso8601String(),
-        'lastEtag': lastEtag,
-        'lastModified': lastModified?.toIso8601String(),
-        'activeProfileId': activeProfileId,
-        'profileTitle': profileTitle,
-        'webPageUrl': webPageUrl,
-        'supportUrl': supportUrl,
-        'movedPermanentlyTo': movedPermanentlyTo,
-        'lastError': lastError,
-        'uploadBytes': uploadBytes,
-        'downloadBytes': downloadBytes,
-        'totalBytes': totalBytes,
-        'nodeCount': nodeCount,
-        'enabled': enabled,
-      };
+    'id': id,
+    'name': name,
+    'url': url,
+    'formatHint': formatHint.name,
+    'updateStatus': updateStatus.name,
+    'autoUpdate': autoUpdate,
+    'updateIntervalSeconds': updateIntervalSeconds,
+    'headers': headers,
+    'userAgent': userAgent,
+    'allowInsecureHttp': allowInsecureHttp,
+    'lastUpdatedAt': lastUpdatedAt?.toIso8601String(),
+    'expiresAt': expiresAt?.toIso8601String(),
+    'lastEtag': lastEtag,
+    'lastModified': lastModified?.toIso8601String(),
+    'activeProfileId': activeProfileId,
+    'profileTitle': profileTitle,
+    'webPageUrl': webPageUrl,
+    'supportUrl': supportUrl,
+    'movedPermanentlyTo': movedPermanentlyTo,
+    'lastError': lastError,
+    'uploadBytes': uploadBytes,
+    'downloadBytes': downloadBytes,
+    'totalBytes': totalBytes,
+    'nodeCount': nodeCount,
+    'enabled': enabled,
+  };
 
   factory Subscription.fromJson(Map<String, dynamic> json) {
     return Subscription(
@@ -256,8 +252,10 @@ class Subscription {
 
   static String _maskSensitiveText(String value) {
     return value.replaceAllMapped(
-      RegExp(r'(token|key|secret|password|passwd|auth)=([^&\s]+)',
-          caseSensitive: false),
+      RegExp(
+        r'(token|key|secret|password|passwd|auth)=([^&\s]+)',
+        caseSensitive: false,
+      ),
       (match) => '${match.group(1)}=***',
     );
   }

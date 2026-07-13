@@ -35,17 +35,17 @@ class ParsedProfile {
   final DateTime createdAt;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'subscriptionId': subscriptionId,
-        'title': title,
-        'format': format.name,
-        'rawHash': rawHash,
-        'nodeCount': nodeCount,
-        'nodes': nodes.map((node) => node.toJson()).toList(),
-        'groups': groups,
-        'rawText': rawText,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'subscriptionId': subscriptionId,
+    'title': title,
+    'format': format.name,
+    'rawHash': rawHash,
+    'nodeCount': nodeCount,
+    'nodes': nodes.map((node) => node.toJson()).toList(),
+    'groups': groups,
+    'rawText': rawText,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   factory ParsedProfile.fromJson(Map<String, dynamic> json) {
     return ParsedProfile(
@@ -66,7 +66,8 @@ class ParsedProfile {
           if (item is String) item,
       ],
       rawText: json['rawText'] as String? ?? '',
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
@@ -112,10 +113,7 @@ class AutoSubscriptionParser implements SubscriptionParser {
     );
   }
 
-  SubscriptionFormat _detectFormat(
-    String text,
-    SubscriptionFormat formatHint,
-  ) {
+  SubscriptionFormat _detectFormat(String text, SubscriptionFormat formatHint) {
     if (formatHint != SubscriptionFormat.auto) {
       return formatHint;
     }
@@ -186,7 +184,10 @@ class AutoSubscriptionParser implements SubscriptionParser {
         if (type.isNotEmpty) {
           nodes.add(
             _node(
-                name: pendingName, type: type, group: _inferGroup(pendingName)),
+              name: pendingName,
+              type: type,
+              group: _inferGroup(pendingName),
+            ),
           );
         }
         pendingName = null;
@@ -232,13 +233,11 @@ class AutoSubscriptionParser implements SubscriptionParser {
 
   List<ProxyNode> _parseV2RayNodes(String text) {
     final body = _decodeV2RayBody(text);
-    final links = RegExp(r'(vmess|vless|trojan|ss)://[^\s]+')
-        .allMatches(body)
-        .map((match) => match.group(0)!)
-        .toList();
-    return _dedupe([
-      for (final link in links) _parseProxyLink(link),
-    ]);
+    final links =
+        RegExp(
+          r'(vmess|vless|trojan|ss)://[^\s]+',
+        ).allMatches(body).map((match) => match.group(0)!).toList();
+    return _dedupe([for (final link in links) _parseProxyLink(link)]);
   }
 
   List<ProxyNode> _parseSurgeNodes(String text) {
@@ -298,9 +297,10 @@ class AutoSubscriptionParser implements SubscriptionParser {
     final uri = Uri.tryParse(link);
     final type = uri?.scheme ?? link.split('://').first;
     final fragment = uri?.fragment;
-    final name = fragment == null || fragment.isEmpty
-        ? '${type.toUpperCase()} Node'
-        : Uri.decodeComponent(fragment);
+    final name =
+        fragment == null || fragment.isEmpty
+            ? '${type.toUpperCase()} Node'
+            : Uri.decodeComponent(fragment);
     return _node(name: name, type: type, group: _inferGroup(name));
   }
 
@@ -313,11 +313,7 @@ class AutoSubscriptionParser implements SubscriptionParser {
     }
   }
 
-  ProxyNode _node({
-    required String name,
-    required String type,
-    String? group,
-  }) {
+  ProxyNode _node({required String name, required String type, String? group}) {
     final normalizedName = name.trim();
     final normalizedType = type.trim().toLowerCase();
     return ProxyNode(
@@ -325,9 +321,7 @@ class AutoSubscriptionParser implements SubscriptionParser {
       name: normalizedName,
       type: normalizedType,
       countryCode: _inferCountryCode(normalizedName),
-      metadata: {
-        if (group != null) 'group': group,
-      },
+      metadata: {if (group != null) 'group': group},
     );
   }
 

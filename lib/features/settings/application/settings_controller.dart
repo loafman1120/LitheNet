@@ -1,31 +1,16 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../data/models/app_settings.dart';
 import '../data/settings_store.dart';
-
-class SettingsControllerScope extends InheritedNotifier<SettingsController> {
-  const SettingsControllerScope({
-    required SettingsController controller,
-    required super.child,
-    super.key,
-  }) : super(notifier: controller);
-
-  static SettingsController of(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<SettingsControllerScope>();
-    assert(scope != null, 'SettingsControllerScope was not found.');
-    return scope!.notifier!;
-  }
-}
 
 class SettingsController extends ChangeNotifier {
   SettingsController({
     AppSettings initialSettings = const AppSettings(),
     AppSettingsStore? store,
-  })  : _settings = initialSettings,
-        _store = store ?? MemorySettingsStore(initialSettings);
+  }) : _settings = initialSettings,
+       _store = store ?? MemorySettingsStore(initialSettings);
 
   final AppSettingsStore _store;
   AppSettings _settings;

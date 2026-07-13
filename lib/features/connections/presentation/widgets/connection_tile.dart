@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/format_bytes.dart';
-import '../../../../data/singbox_api/singbox_api_models.dart';
+import '../../../../core/runtime/core_models.dart';
 
 class ConnectionTile extends StatelessWidget {
   const ConnectionTile({required this.connection, super.key});
 
-  final SingboxApiConnection connection;
+  final CoreConnection connection;
 
   @override
   Widget build(BuildContext context) {
@@ -64,21 +64,12 @@ class ConnectionTile extends StatelessWidget {
                     color: AppColors.download,
                   ),
                   const Spacer(),
-                  _MetaChip(
-                    icon: Icons.route,
-                    label: connection.outbound,
-                  ),
+                  _MetaChip(icon: Icons.route, label: connection.outbound),
                   const SizedBox(width: 6),
-                  _MetaChip(
-                    icon: Icons.policy_outlined,
-                    label: protocolLabel,
-                  ),
+                  _MetaChip(icon: Icons.policy_outlined, label: protocolLabel),
                   if (duration.isNotEmpty) ...[
                     const SizedBox(width: 6),
-                    _MetaChip(
-                      icon: Icons.timer_outlined,
-                      label: duration,
-                    ),
+                    _MetaChip(icon: Icons.timer_outlined, label: duration),
                   ],
                 ],
               ),
@@ -89,7 +80,7 @@ class ConnectionTile extends StatelessWidget {
     );
   }
 
-  String _displayDestination(SingboxApiConnection c) {
+  String _displayDestination(CoreConnection c) {
     if (c.domain.isNotEmpty) return c.domain;
     return c.destination;
   }

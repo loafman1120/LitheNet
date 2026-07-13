@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/format_bytes.dart';
-import '../../../../repositories/proxy_repository.dart';
+import '../../../../core/runtime/core_models.dart';
 
 class TrafficStatsCard extends StatelessWidget {
   const TrafficStatsCard({required this.snapshot, super.key});

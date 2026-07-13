@@ -89,25 +89,26 @@ class SubscriptionCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   PopupMenuButton<String>(
                     onSelected: onMenuSelected,
-                    itemBuilder: (_) => [
-                      if (!sub.enabled)
-                        const PopupMenuItem(
-                          value: 'use',
-                          child: Text('Use'),
-                        ),
-                      const PopupMenuItem(
-                        value: 'update',
-                        child: Text('Update'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'rename',
-                        child: Text('Rename'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete'),
-                      ),
-                    ],
+                    itemBuilder:
+                        (_) => [
+                          if (!sub.enabled)
+                            const PopupMenuItem(
+                              value: 'use',
+                              child: Text('Use'),
+                            ),
+                          const PopupMenuItem(
+                            value: 'update',
+                            child: Text('Update'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'rename',
+                            child: Text('Rename'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('Delete'),
+                          ),
+                        ],
                   ),
                 ],
               ),
@@ -120,9 +121,10 @@ class SubscriptionCard extends StatelessWidget {
                 Text(
                   'Expires: ${_formatDate(sub.expiresAt!)}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: sub.isExpired
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.onSurfaceVariant,
+                    color:
+                        sub.isExpired
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -160,19 +162,19 @@ class _StatusChip extends StatelessWidget {
     final status = subscription.updateStatus;
     final (label, color) = switch (status) {
       SubscriptionUpdateStatus.updating => (
-          'Updating',
-          theme.colorScheme.primary
-        ),
+        'Updating',
+        theme.colorScheme.primary,
+      ),
       SubscriptionUpdateStatus.updated => ('Updated', const Color(0xff15803d)),
       SubscriptionUpdateStatus.noChange => (
-          'Current',
-          theme.colorScheme.primary
-        ),
+        'Current',
+        theme.colorScheme.primary,
+      ),
       SubscriptionUpdateStatus.failed => ('Failed', theme.colorScheme.error),
       SubscriptionUpdateStatus.idle => (
-          'Idle',
-          theme.colorScheme.onSurfaceVariant
-        ),
+        'Idle',
+        theme.colorScheme.onSurfaceVariant,
+      ),
     };
 
     if (status == SubscriptionUpdateStatus.updating) {

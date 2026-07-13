@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_identity.dart';
+import '../../app/app_providers.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../data/models/ip_info.dart';
-import '../../repositories/proxy_repository.dart';
 import 'data/ip_info_service.dart';
 import 'presentation/widgets/connection_button.dart';
 import 'presentation/widgets/connection_error_banner.dart';
@@ -12,15 +13,14 @@ import 'presentation/widgets/ip_info_card.dart';
 import 'presentation/widgets/quick_actions_grid.dart';
 import 'presentation/widgets/traffic_stats_card.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  ProxyRepository? _repository;
+class _HomePageState extends ConsumerState<HomePage> {
   IpInfo? _ipInfo;
   bool _ipLoading = false;
   String? _ipError;
@@ -29,25 +29,6 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _fetchIpInfo();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final next = ProxyRepositoryScope.of(context);
-    if (_repository == next) return;
-    _repository?.removeListener(_onStateChanged);
-    _repository = next..addListener(_onStateChanged);
-  }
-
-  @override
-  void dispose() {
-    _repository?.removeListener(_onStateChanged);
-    super.dispose();
-  }
-
-  void _onStateChanged() {
-    if (mounted) setState(() {});
   }
 
   Future<void> _fetchIpInfo() async {
@@ -67,7 +48,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final repo = ProxyRepositoryScope.of(context);
+    final core = ref.watch(coreControllerProvider);
 
     return SafeArea(
       child: CustomScrollView(
@@ -78,8 +59,8 @@ class _HomePageState extends State<HomePage> {
               child: Text(
                 AppIdentity.displayName,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ),
@@ -87,7 +68,7 @@ class _HomePageState extends State<HomePage> {
             padding: const EdgeInsets.all(16),
             sliver: SliverList.list(
               children: [
-                CurrentProfileCard(repository: repo),
+                CurrentProfileCard(core: core),
                 const SizedBox(height: AppSpacing.sectionGap),
                 IpInfoCard(
                   ipInfo: _ipInfo,
@@ -96,21 +77,14 @@ class _HomePageState extends State<HomePage> {
                   onRefresh: _fetchIpInfo,
                 ),
                 const SizedBox(height: AppSpacing.sectionGap),
-                Center(child: ConnectionButton(repository: repo)),
+                Center(child: ConnectionButton(core: core)),
                 const SizedBox(height: AppSpacing.sectionGap),
-                TrafficStatsCard(snapshot: repo.traffic),
+                TrafficStatsCard(snapshot: core.traffic),
                 const SizedBox(height: AppSpacing.sectionGap),
                 const QuickActionsGrid(),
-                if (repo.message.isNotEmpty &&
-                    !repo.running &&
-                    repo.status == 'Stopped') ...[
+                if (core.message.isNotEmpty && !core.available) ...[
                   const SizedBox(height: AppSpacing.sectionGap),
-                  ConnectionErrorBanner(
-                    message: repo.message,
-                    onElevate: repo.canRequestTunElevation
-                        ? repo.requestTunElevation
-                        : null,
-                  ),
+                  ConnectionErrorBanner(message: core.message),
                 ],
               ],
             ),

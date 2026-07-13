@@ -171,8 +171,9 @@ rules:
   });
 
   test('loads persisted subscriptions and restores proxy catalog', () async {
-    final directory =
-        await Directory.systemTemp.createTemp('lithenet_subscriptions');
+    final directory = await Directory.systemTemp.createTemp(
+      'lithenet_subscriptions',
+    );
     addTearDown(() => directory.delete(recursive: true));
 
     final listStore = FileSubscriptionListStore(

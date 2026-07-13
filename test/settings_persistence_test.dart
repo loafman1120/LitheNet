@@ -8,20 +8,26 @@ import 'package:lithenet/features/settings/application/settings_controller.dart'
 import 'package:lithenet/features/settings/data/settings_store.dart';
 
 void main() {
-  test('AppStoragePaths creates settings, profile, and core locations',
-      () async {
-    final directory = await Directory.systemTemp.createTemp('lithenet_paths');
-    addTearDown(() => directory.delete(recursive: true));
+  test(
+    'AppStoragePaths creates settings, profile, and core locations',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('lithenet_paths');
+      addTearDown(() => directory.delete(recursive: true));
 
-    final paths = await AppStoragePaths.fromRoot(directory);
+      final paths = await AppStoragePaths.fromRoot(directory);
 
-    expect(paths.settingsFile.path,
-        '${directory.path}${Platform.pathSeparator}settings.json');
-    expect(paths.subscriptionsFile.path,
-        '${directory.path}${Platform.pathSeparator}subscriptions.json');
-    expect(await paths.profilesDirectory.exists(), isTrue);
-    expect(await paths.coreDirectory.exists(), isTrue);
-  });
+      expect(
+        paths.settingsFile.path,
+        '${directory.path}${Platform.pathSeparator}settings.json',
+      );
+      expect(
+        paths.subscriptionsFile.path,
+        '${directory.path}${Platform.pathSeparator}subscriptions.json',
+      );
+      expect(await paths.profilesDirectory.exists(), isTrue);
+      expect(await paths.coreDirectory.exists(), isTrue);
+    },
+  );
 
   test('AppSettings round trips through JSON with enum values', () {
     const settings = AppSettings(
@@ -50,13 +56,15 @@ void main() {
   });
 
   test('SettingsStore saves and loads settings.json', () async {
-    final directory =
-        await Directory.systemTemp.createTemp('lithenet_settings');
+    final directory = await Directory.systemTemp.createTemp(
+      'lithenet_settings',
+    );
     addTearDown(() => directory.delete(recursive: true));
 
     final store = SettingsStore(
       JsonFileStore(
-          File('${directory.path}${Platform.pathSeparator}settings.json')),
+        File('${directory.path}${Platform.pathSeparator}settings.json'),
+      ),
     );
 
     await store.save(

@@ -32,7 +32,6 @@ Future<void> main() async {
     LitheNetApp(
       settingsController: settingsController,
       subscriptionsController: subscriptionsController,
-      storagePaths: paths,
     ),
   );
 }

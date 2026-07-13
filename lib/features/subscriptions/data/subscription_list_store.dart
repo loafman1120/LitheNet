@@ -36,7 +36,7 @@ class FileSubscriptionListStore implements SubscriptionListStore {
 
 class MemorySubscriptionListStore implements SubscriptionListStore {
   MemorySubscriptionListStore([List<Subscription> initial = const []])
-      : _subscriptions = List.of(initial);
+    : _subscriptions = List.of(initial);
 
   List<Subscription> _subscriptions;
 

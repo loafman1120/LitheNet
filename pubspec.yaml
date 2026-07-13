@@ -1,17 +1,17 @@
 name: lithenet
-description: Flutter desktop shell for Lithe powered by singbox-ffi.
-version: 0.1.0
+description: Flutter desktop client for Lithe, prepared for the Rustbox core.
+version: 0.2.0
 publish_to: none
 
 environment:
-  sdk: ">=3.4.0 <4.0.0"
+  sdk: ">=3.7.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
+  flutter_riverpod: ^3.3.2
   go_router: ^17.3.0
   path_provider: ^2.1.6
-  singbox_ffi: ^0.1.6
 
 dev_dependencies:
   flutter_test:

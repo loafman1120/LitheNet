@@ -1,79 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/app_providers.dart';
 import '../../../core/widgets/empty_state.dart';
-import '../../../repositories/proxy_repository.dart';
 import '../application/connections_controller.dart';
 import 'widgets/connection_tile.dart';
 
-class ConnectionsPage extends StatefulWidget {
+class ConnectionsPage extends ConsumerWidget {
   const ConnectionsPage({super.key});
 
   @override
-  State<ConnectionsPage> createState() => _ConnectionsPageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(connectionsControllerProvider);
+    final connections = controller.filteredConnections;
 
-class _ConnectionsPageState extends State<ConnectionsPage> {
-  late final ConnectionsController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = ConnectionsController();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _controller.bind(ProxyRepositoryScope.of(context));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final connections = _controller.filteredConnections;
-
-        return Scaffold(
-          appBar: AppBar(
-            title: Text('Connections (${_controller.activeCount})'),
+    return Scaffold(
+      appBar: AppBar(title: Text('Connections (${controller.activeCount})')),
+      body: Column(
+        children: [
+          _ConnectionsToolbar(
+            searchQuery: controller.searchQuery,
+            sortBy: controller.sortBy,
+            sortAsc: controller.sortAsc,
+            onSearchChanged: controller.setSearchQuery,
+            onSortChanged: controller.setSortBy,
           ),
-          body: Column(
-            children: [
-              _ConnectionsToolbar(
-                searchQuery: _controller.searchQuery,
-                sortBy: _controller.sortBy,
-                sortAsc: _controller.sortAsc,
-                onSearchChanged: _controller.setSearchQuery,
-                onSortChanged: _controller.setSortBy,
-              ),
-              Expanded(
-                child: connections.isEmpty
+          Expanded(
+            child:
+                connections.isEmpty
                     ? const EmptyState(
-                        icon: Icons.cable_outlined,
-                        title: 'No connections',
-                        description:
-                            'Active connections will appear here when the proxy is running.',
-                      )
+                      icon: Icons.cable_outlined,
+                      title: 'No connections',
+                      description:
+                          'Active connections will appear here when the proxy is running.',
+                    )
                     : ListView.builder(
-                        itemCount: connections.length,
-                        itemBuilder: (context, index) {
-                          return ConnectionTile(
-                            connection: connections[index],
-                          );
-                        },
-                      ),
-              ),
-            ],
+                      itemCount: connections.length,
+                      itemBuilder: (context, index) {
+                        return ConnectionTile(connection: connections[index]);
+                      },
+                    ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }
@@ -124,12 +93,13 @@ class _ConnectionsToolbar extends StatelessWidget {
             ),
             tooltip: 'Sort by',
             onSelected: onSortChanged,
-            itemBuilder: (context) => [
-              _sortItem(ConnectionSortBy.traffic, 'Traffic'),
-              _sortItem(ConnectionSortBy.destination, 'Destination'),
-              _sortItem(ConnectionSortBy.outbound, 'Outbound'),
-              _sortItem(ConnectionSortBy.network, 'Network'),
-            ],
+            itemBuilder:
+                (context) => [
+                  _sortItem(ConnectionSortBy.traffic, 'Traffic'),
+                  _sortItem(ConnectionSortBy.destination, 'Destination'),
+                  _sortItem(ConnectionSortBy.outbound, 'Outbound'),
+                  _sortItem(ConnectionSortBy.network, 'Network'),
+                ],
           ),
         ],
       ),
@@ -147,10 +117,7 @@ class _ConnectionsToolbar extends StatelessWidget {
           Text(label),
           const Spacer(),
           if (sortBy == value)
-            Icon(
-              sortAsc ? Icons.arrow_upward : Icons.arrow_downward,
-              size: 14,
-            ),
+            Icon(sortAsc ? Icons.arrow_upward : Icons.arrow_downward, size: 14),
         ],
       ),
     );

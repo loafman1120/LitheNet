@@ -6,10 +6,10 @@ enum ThemeModeOption {
   dark;
 
   String get label => switch (this) {
-        ThemeModeOption.system => 'System',
-        ThemeModeOption.light => 'Light',
-        ThemeModeOption.dark => 'Dark',
-      };
+    ThemeModeOption.system => 'System',
+    ThemeModeOption.light => 'Light',
+    ThemeModeOption.dark => 'Dark',
+  };
 }
 
 extension ThemeModeOptionParsing on ThemeModeOption {
@@ -28,9 +28,9 @@ enum ProxyMode {
   tun;
 
   String get label => switch (this) {
-        ProxyMode.mixed => 'System proxy',
-        ProxyMode.tun => 'TUN',
-      };
+    ProxyMode.mixed => 'System proxy',
+    ProxyMode.tun => 'TUN',
+  };
 }
 
 extension ProxyModeParsing on ProxyMode {
@@ -93,16 +93,16 @@ class AppSettings {
   }
 
   Map<String, dynamic> toJson() => {
-        'themeMode': themeMode.name,
-        'startOnBoot': startOnBoot,
-        'enableNotifications': enableNotifications,
-        'listenAddress': listenAddress,
-        'mixedPort': mixedPort,
-        'proxyMode': proxyMode.name,
-        'ipv6': ipv6,
-        'systemProxy': systemProxy,
-        'perAppProxy': perAppProxy,
-      };
+    'themeMode': themeMode.name,
+    'startOnBoot': startOnBoot,
+    'enableNotifications': enableNotifications,
+    'listenAddress': listenAddress,
+    'mixedPort': mixedPort,
+    'proxyMode': proxyMode.name,
+    'ipv6': ipv6,
+    'systemProxy': systemProxy,
+    'perAppProxy': perAppProxy,
+  };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
     final listenAddress = json['listenAddress'] as String?;
@@ -112,12 +112,14 @@ class AppSettings {
       themeMode: ThemeModeOptionParsing.fromName(json['themeMode'] as String?),
       startOnBoot: json['startOnBoot'] as bool? ?? false,
       enableNotifications: json['enableNotifications'] as bool? ?? true,
-      listenAddress: listenAddress == null || listenAddress.trim().isEmpty
-          ? '127.0.0.1'
-          : listenAddress.trim(),
-      mixedPort: mixedPort == null || mixedPort <= 0 || mixedPort >= 65536
-          ? 2080
-          : mixedPort,
+      listenAddress:
+          listenAddress == null || listenAddress.trim().isEmpty
+              ? '127.0.0.1'
+              : listenAddress.trim(),
+      mixedPort:
+          mixedPort == null || mixedPort <= 0 || mixedPort >= 65536
+              ? 2080
+              : mixedPort,
       proxyMode: ProxyModeParsing.fromName(json['proxyMode'] as String?),
       ipv6: json['ipv6'] as bool? ?? false,
       systemProxy: json['systemProxy'] as bool? ?? true,

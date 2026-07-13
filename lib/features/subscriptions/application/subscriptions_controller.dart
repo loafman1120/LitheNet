@@ -19,10 +19,9 @@ class SubscriptionsController extends ChangeNotifier {
     final effectiveProfileStore = profileStore ?? InMemoryProfileStore();
     _profileStore = effectiveProfileStore;
     _store = store ?? MemorySubscriptionListStore(initialSubscriptions);
-    _repository = repository ??
-        DefaultSubscriptionRepository(
-          store: effectiveProfileStore,
-        );
+    _repository =
+        repository ??
+        DefaultSubscriptionRepository(store: effectiveProfileStore);
   }
 
   late final SubscriptionRepository _repository;
@@ -75,9 +74,10 @@ class SubscriptionsController extends ChangeNotifier {
     final normalizedName = name?.trim();
     final sub = Subscription(
       id: id,
-      name: normalizedName == null || normalizedName.isEmpty
-          ? 'Subscription ${_subscriptions.length + 1}'
-          : normalizedName,
+      name:
+          normalizedName == null || normalizedName.isEmpty
+              ? 'Subscription ${_subscriptions.length + 1}'
+              : normalizedName,
       url: normalizedUrl,
     );
     _subscriptions.add(sub);
@@ -117,9 +117,10 @@ class SubscriptionsController extends ChangeNotifier {
   }
 
   Future<void> setActive(String id) async {
-    _subscriptions = _subscriptions.map((s) {
-      return s.copyWith(enabled: s.id == id);
-    }).toList();
+    _subscriptions =
+        _subscriptions.map((s) {
+          return s.copyWith(enabled: s.id == id);
+        }).toList();
     await _persist();
     notifyListeners();
     await _restoreActiveProfile();
@@ -136,8 +137,9 @@ class SubscriptionsController extends ChangeNotifier {
     notifyListeners();
 
     final result = await _repository.updateOne(_subscriptions[index]);
-    final currentIndex =
-        _subscriptions.indexWhere((s) => s.id == result.subscription.id);
+    final currentIndex = _subscriptions.indexWhere(
+      (s) => s.id == result.subscription.id,
+    );
     if (currentIndex >= 0) {
       _subscriptions[currentIndex] = result.subscription;
     }
@@ -149,9 +151,10 @@ class SubscriptionsController extends ChangeNotifier {
       (subscription) =>
           subscription.updateStatus == SubscriptionUpdateStatus.updating,
     );
-    _lastError = result.status == SubscriptionUpdateStatus.failed
-        ? result.message ?? result.subscription.lastError
-        : null;
+    _lastError =
+        result.status == SubscriptionUpdateStatus.failed
+            ? result.message ?? result.subscription.lastError
+            : null;
     try {
       await _persist();
     } on Object catch (error) {
@@ -207,21 +210,5 @@ class SubscriptionsController extends ChangeNotifier {
 
   Future<void> _persist() {
     return _store.save(_subscriptions);
-  }
-}
-
-class SubscriptionsControllerScope
-    extends InheritedNotifier<SubscriptionsController> {
-  const SubscriptionsControllerScope({
-    required SubscriptionsController controller,
-    required super.child,
-    super.key,
-  }) : super(notifier: controller);
-
-  static SubscriptionsController of(BuildContext context) {
-    final scope = context
-        .dependOnInheritedWidgetOfExactType<SubscriptionsControllerScope>();
-    assert(scope != null, 'SubscriptionsControllerScope was not found.');
-    return scope!.notifier!;
   }
 }

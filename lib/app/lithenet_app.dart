@@ -1,92 +1,69 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_theme.dart';
+import '../core/runtime/core_gateway.dart';
 import '../data/models/app_settings.dart';
-import '../data/storage/app_storage_paths.dart';
-import '../features/proxies/application/proxy_catalog.dart';
 import '../features/settings/application/settings_controller.dart';
 import '../features/subscriptions/application/subscriptions_controller.dart';
-import '../repositories/proxy_repository.dart';
+import 'app_providers.dart';
 import 'app_identity.dart';
 import 'router.dart';
 
-class LitheNetApp extends StatefulWidget {
+class LitheNetApp extends StatelessWidget {
   const LitheNetApp({
     super.key,
-    this.proxyRepository,
+    this.coreGateway,
     this.settingsController,
     this.subscriptionsController,
-    this.storagePaths,
   });
 
-  final ProxyRepository? proxyRepository;
+  final CoreGateway? coreGateway;
   final SettingsController? settingsController;
   final SubscriptionsController? subscriptionsController;
-  final AppStoragePaths? storagePaths;
-
-  @override
-  State<LitheNetApp> createState() => _LitheNetAppState();
-}
-
-class _LitheNetAppState extends State<LitheNetApp> {
-  late final ProxyRepository _proxyRepository;
-  late final ProxyCatalog _proxyCatalog;
-  late final SettingsController _settingsController;
-  late final SubscriptionsController _subscriptionsController;
-  late final AppRouter _appRouter;
-
-  @override
-  void initState() {
-    super.initState();
-    _settingsController = widget.settingsController ?? SettingsController();
-    _proxyRepository = widget.proxyRepository ??
-        SingboxProxyRepository(
-          initialSettings: _settingsController.settings,
-          storagePaths: widget.storagePaths,
-        );
-    _proxyCatalog = ProxyCatalog();
-    _subscriptionsController =
-        widget.subscriptionsController ?? SubscriptionsController();
-    _subscriptionsController.bindProxyCatalog(_proxyCatalog);
-    _appRouter = AppRouter();
-  }
-
-  @override
-  void dispose() {
-    _proxyRepository.dispose();
-    _proxyCatalog.dispose();
-    _subscriptionsController.dispose();
-    _settingsController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _settingsController,
-      builder: (context, _) {
-        return SettingsControllerScope(
-          controller: _settingsController,
-          child: ProxyCatalogScope(
-            catalog: _proxyCatalog,
-            child: SubscriptionsControllerScope(
-              controller: _subscriptionsController,
-              child: ProxyRepositoryScope(
-                repository: _proxyRepository,
-                child: MaterialApp.router(
-                  title: AppIdentity.displayName,
-                  debugShowCheckedModeBanner: false,
-                  theme: AppTheme.light,
-                  darkTheme: AppTheme.dark,
-                  themeMode:
-                      _themeModeFor(_settingsController.settings.themeMode),
-                  routerConfig: _appRouter.router,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    return ProviderScope(
+      overrides: [
+        if (coreGateway != null)
+          coreGatewayProvider.overrideWithValue(coreGateway!),
+        if (settingsController != null)
+          settingsControllerProvider.overrideWith((ref) => settingsController!),
+        if (subscriptionsController != null)
+          subscriptionsControllerProvider.overrideWith((ref) {
+            subscriptionsController!.bindProxyCatalog(
+              ref.read(proxyCatalogProvider),
+            );
+            return subscriptionsController!;
+          }),
+      ],
+      child: const _LitheNetAppView(),
+    );
+  }
+}
+
+class _LitheNetAppView extends ConsumerStatefulWidget {
+  const _LitheNetAppView();
+
+  @override
+  ConsumerState<_LitheNetAppView> createState() => _LitheNetAppViewState();
+}
+
+class _LitheNetAppViewState extends ConsumerState<_LitheNetAppView> {
+  late final AppRouter _appRouter = AppRouter();
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = ref.watch(settingsControllerProvider).settings;
+
+    return MaterialApp.router(
+      title: AppIdentity.displayName,
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: _themeModeFor(settings.themeMode),
+      routerConfig: _appRouter.router,
     );
   }
 

@@ -37,16 +37,20 @@ class ConnectionErrorBanner extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(color: theme.colorScheme.onErrorContainer),
         ),
-        trailing: onElevate == null
-            ? Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onErrorContainer,
-              )
-            : FilledButton.icon(
-                onPressed: onElevate,
-                icon: const Icon(Icons.admin_panel_settings_outlined, size: 18),
-                label: const Text('Elevate'),
-              ),
+        trailing:
+            onElevate == null
+                ? Icon(
+                  Icons.chevron_right,
+                  color: theme.colorScheme.onErrorContainer,
+                )
+                : FilledButton.icon(
+                  onPressed: onElevate,
+                  icon: const Icon(
+                    Icons.admin_panel_settings_outlined,
+                    size: 18,
+                  ),
+                  label: const Text('Elevate'),
+                ),
         onTap: () => context.go(AppRoute.logs.path),
       ),
     );

@@ -40,8 +40,9 @@ class SubscriptionHeaderParser {
     final userInfo = _parseUserInfo(normalized['subscription-userinfo']);
     return SubscriptionHeaderMetadata(
       title: _parseTitle(normalized),
-      updateIntervalSeconds:
-          _parseUpdateInterval(normalized['profile-update-interval']),
+      updateIntervalSeconds: _parseUpdateInterval(
+        normalized['profile-update-interval'],
+      ),
       uploadBytes: userInfo['upload'],
       downloadBytes: userInfo['download'],
       totalBytes: userInfo['total'],
@@ -67,8 +68,9 @@ class SubscriptionHeaderParser {
     if (disposition == null) {
       return null;
     }
-    final utf8Name =
-        RegExp(r"filename\*=UTF-8''([^;]+)").firstMatch(disposition)?.group(1);
+    final utf8Name = RegExp(
+      r"filename\*=UTF-8''([^;]+)",
+    ).firstMatch(disposition)?.group(1);
     if (utf8Name != null) {
       return Uri.decodeComponent(utf8Name);
     }

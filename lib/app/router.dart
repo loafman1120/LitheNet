@@ -16,10 +16,9 @@ class AppRouter {
     initialLocation: AppRoute.home.path,
     routes: [
       ShellRoute(
-        builder: (context, state, child) => AppShell(
-          location: state.uri.path,
-          child: child,
-        ),
+        builder:
+            (context, state, child) =>
+                AppShell(location: state.uri.path, child: child),
         routes: [
           GoRoute(
             path: AppRoute.home.path,
@@ -53,10 +52,8 @@ class AppRouter {
   static Page<void> Function(BuildContext, GoRouterState) _fadePageBuilder(
     Widget child,
   ) {
-    return (context, state) => NoTransitionPage<void>(
-          key: state.pageKey,
-          child: child,
-        );
+    return (context, state) =>
+        NoTransitionPage<void>(key: state.pageKey, child: child);
   }
 }
 

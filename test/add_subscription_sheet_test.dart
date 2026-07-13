@@ -3,23 +3,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lithenet/features/subscriptions/presentation/widgets/add_subscription_sheet.dart';
 
 void main() {
-  testWidgets('add subscription sheet accepts host-only HTTPS URLs',
-      (tester) async {
+  testWidgets('add subscription sheet accepts host-only HTTPS URLs', (
+    tester,
+  ) async {
     Map<String, String>? result;
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
-          builder: (context) => Scaffold(
-            body: FilledButton(
-              onPressed: () async {
-                result = await showModalBottomSheet<Map<String, String>>(
-                  context: context,
-                  builder: (_) => const AddSubscriptionSheet(),
-                );
-              },
-              child: const Text('Open'),
-            ),
-          ),
+          builder:
+              (context) => Scaffold(
+                body: FilledButton(
+                  onPressed: () async {
+                    result = await showModalBottomSheet<Map<String, String>>(
+                      context: context,
+                      builder: (_) => const AddSubscriptionSheet(),
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
         ),
       ),
     );
@@ -36,23 +38,25 @@ void main() {
     expect(result, {'url': 'https://example.com'});
   });
 
-  testWidgets('add subscription sheet extracts URLs from Clash import links',
-      (tester) async {
+  testWidgets('add subscription sheet extracts URLs from Clash import links', (
+    tester,
+  ) async {
     Map<String, String>? result;
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
-          builder: (context) => Scaffold(
-            body: FilledButton(
-              onPressed: () async {
-                result = await showModalBottomSheet<Map<String, String>>(
-                  context: context,
-                  builder: (_) => const AddSubscriptionSheet(),
-                );
-              },
-              child: const Text('Open'),
-            ),
-          ),
+          builder:
+              (context) => Scaffold(
+                body: FilledButton(
+                  onPressed: () async {
+                    result = await showModalBottomSheet<Map<String, String>>(
+                      context: context,
+                      builder: (_) => const AddSubscriptionSheet(),
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
         ),
       ),
     );
@@ -69,23 +73,25 @@ void main() {
     expect(result, {'url': 'https://example.com/sub'});
   });
 
-  testWidgets('add subscription sheet extracts URLs from common import params',
-      (tester) async {
+  testWidgets('add subscription sheet extracts URLs from common import params', (
+    tester,
+  ) async {
     Map<String, String>? result;
     await tester.pumpWidget(
       MaterialApp(
         home: Builder(
-          builder: (context) => Scaffold(
-            body: FilledButton(
-              onPressed: () async {
-                result = await showModalBottomSheet<Map<String, String>>(
-                  context: context,
-                  builder: (_) => const AddSubscriptionSheet(),
-                );
-              },
-              child: const Text('Open'),
-            ),
-          ),
+          builder:
+              (context) => Scaffold(
+                body: FilledButton(
+                  onPressed: () async {
+                    result = await showModalBottomSheet<Map<String, String>>(
+                      context: context,
+                      builder: (_) => const AddSubscriptionSheet(),
+                    );
+                  },
+                  child: const Text('Open'),
+                ),
+              ),
         ),
       ),
     );

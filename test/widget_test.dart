@@ -25,8 +25,9 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
   });
 
-  testWidgets('adds a subscription from the subscriptions page',
-      (tester) async {
+  testWidgets('adds a subscription from the subscriptions page', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -34,19 +35,14 @@ void main() {
       repository: _WidgetFakeSubscriptionRepository(),
     );
 
-    await tester.pumpWidget(
-      LitheNetApp(subscriptionsController: controller),
-    );
+    await tester.pumpWidget(LitheNetApp(subscriptionsController: controller));
 
     await tester.tap(find.text('Subs'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add Subscription'));
     await tester.pumpAndSettle();
     await tester.enterText(
-      find.widgetWithText(
-        TextFormField,
-        'Subscription URL',
-      ),
+      find.widgetWithText(TextFormField, 'Subscription URL'),
       'clash://install-config?url=https%3A%2F%2Fexample.com%2Fsub',
     );
     await tester.tap(find.text('Add'));
@@ -56,8 +52,9 @@ void main() {
     expect(find.textContaining('https://example.com/sub'), findsOneWidget);
   });
 
-  testWidgets('keeps added subscription visible when update fails',
-      (tester) async {
+  testWidgets('keeps added subscription visible when update fails', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -79,8 +76,9 @@ void main() {
     expect(find.text('Failed'), findsOneWidget);
   });
 
-  testWidgets('adds the dati yaml subscription URL from the page',
-      (tester) async {
+  testWidgets('adds the dati yaml subscription URL from the page', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 

@@ -65,9 +65,10 @@ class SubscriptionUrlNormalizer {
   String? _extractEmbeddedHttpUrl(String value) {
     var current = value;
     for (var i = 0; i < 3; i += 1) {
-      final match =
-          RegExp(r'https?%3A%2F%2F[^\s&?#]+(?:[^\s]*)', caseSensitive: false)
-              .firstMatch(current);
+      final match = RegExp(
+        r'https?%3A%2F%2F[^\s&?#]+(?:[^\s]*)',
+        caseSensitive: false,
+      ).firstMatch(current);
       if (match != null) {
         final normalized = normalize(Uri.decodeFull(match.group(0)!));
         if (normalized != null) {
@@ -75,8 +76,11 @@ class SubscriptionUrlNormalizer {
         }
       }
 
-      final plain = RegExp(r'https?://[^\s<>"' '`]+', caseSensitive: false)
-          .firstMatch(current);
+      final plain = RegExp(
+        r'https?://[^\s<>"'
+        '`]+',
+        caseSensitive: false,
+      ).firstMatch(current);
       if (plain != null) {
         final candidate = plain.group(0)!.replaceAll(RegExp(r'[),.;]+$'), '');
         final uri = Uri.tryParse(candidate);
