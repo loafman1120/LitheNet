@@ -27,9 +27,9 @@ It exposes lifecycle operations and a stream of immutable `CoreSnapshot`
 values. `CoreController` converts that stream into UI-observable state and
 owns error/busy handling.
 
-The default `UnavailableCoreGateway` is intentional. It keeps the UI usable
-while the Dart bridge is unfinished without simulated traffic, fake latency,
-or a hidden dependency on the deleted core.
+`RustBoxGrpcGateway` starts the RustBox sidecar without blocking Flutter's UI
+isolate. It maps authenticated gRPC snapshots, connection metrics, events, and
+sing-box-compatible outbound group updates into `CoreSnapshot` values.
 
 ## State ownership
 
@@ -46,10 +46,9 @@ Riverpod handles their lifecycle, injection, observation, and test overrides.
 This avoids a risky all-at-once rewrite and leaves a straightforward path to
 Riverpod `Notifier`/`AsyncNotifier` when Rustbox introduces asynchronous state.
 
-## Rustbox adapter checklist
+## RustBox process contract
 
-1. Create a package-specific adapter implementing `CoreGateway`.
-2. Map Rustbox values into `CoreSnapshot`, `CoreConnection`, `ProxyGroup`, and
-   `LogEntry` at the boundary.
-3. Override `coreGatewayProvider` during app bootstrap.
-4. Add adapter contract tests; keep widgets unchanged.
+The desktop app launches `rustbox-app run` with an ephemeral loopback gRPC
+port and a random bearer token. All process I/O, readiness checks, polling,
+group subscriptions, commands, and shutdown operations are asynchronous. The
+generated protobuf surface remains below `lib/core/runtime/grpc`.

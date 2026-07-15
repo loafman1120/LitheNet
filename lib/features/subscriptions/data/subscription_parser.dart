@@ -233,10 +233,9 @@ class AutoSubscriptionParser implements SubscriptionParser {
 
   List<ProxyNode> _parseV2RayNodes(String text) {
     final body = _decodeV2RayBody(text);
-    final links =
-        RegExp(
-          r'(vmess|vless|trojan|ss)://[^\s]+',
-        ).allMatches(body).map((match) => match.group(0)!).toList();
+    final links = RegExp(
+      r'(vmess|vless|trojan|ss)://[^\s]+',
+    ).allMatches(body).map((match) => match.group(0)!).toList();
     return _dedupe([for (final link in links) _parseProxyLink(link)]);
   }
 
@@ -297,10 +296,9 @@ class AutoSubscriptionParser implements SubscriptionParser {
     final uri = Uri.tryParse(link);
     final type = uri?.scheme ?? link.split('://').first;
     final fragment = uri?.fragment;
-    final name =
-        fragment == null || fragment.isEmpty
-            ? '${type.toUpperCase()} Node'
-            : Uri.decodeComponent(fragment);
+    final name = fragment == null || fragment.isEmpty
+        ? '${type.toUpperCase()} Node'
+        : Uri.decodeComponent(fragment);
     return _node(name: name, type: type, group: _inferGroup(name));
   }
 
@@ -321,7 +319,7 @@ class AutoSubscriptionParser implements SubscriptionParser {
       name: normalizedName,
       type: normalizedType,
       countryCode: _inferCountryCode(normalizedName),
-      metadata: {if (group != null) 'group': group},
+      metadata: {'group': ?group},
     );
   }
 
