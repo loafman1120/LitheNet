@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/legacy.dart';
 
 import '../core/runtime/core_controller.dart';
 import '../core/runtime/core_gateway.dart';
+import '../core/runtime/rustbox_grpc_gateway.dart';
 import '../features/connections/application/connections_controller.dart';
 import '../features/logs/application/logs_controller.dart';
 import '../features/proxies/application/proxies_controller.dart';
@@ -11,7 +12,7 @@ import '../features/settings/application/settings_controller.dart';
 import '../features/subscriptions/application/subscriptions_controller.dart';
 
 final coreGatewayProvider = Provider<CoreGateway>(
-  (ref) => const UnavailableCoreGateway(),
+  (ref) => RustBoxGrpcGateway(),
 );
 
 final settingsControllerProvider = ChangeNotifierProvider<SettingsController>(

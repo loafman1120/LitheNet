@@ -1,16 +1,16 @@
 # Lithe
 
-Lithe is a Flutter desktop proxy client being migrated to the Rustbox core.
-The previous sing-box FFI integration and its build automation have been
-removed. Until the Rustbox Dart bridge is ready, the application runs as a UI
-and subscription-management shell and reports the core as unavailable.
+Lithe is a Flutter desktop proxy client backed by RustBox. It starts the
+`rustbox-app` sidecar asynchronously and uses RustBox's authenticated loopback
+gRPC control API for runtime state and commands.
 
 ## Status
 
 - Flutter UI: available
 - Settings and subscription persistence: available
 - Subscription parsing and proxy catalog: available
-- Rustbox native runtime: waiting for the Dart bridge
+- RustBox runtime lifecycle: available through gRPC
+- Runtime metrics, connections, events, and outbound groups: available
 - GitHub Actions: intentionally removed
 
 ## Architecture
@@ -24,12 +24,12 @@ Flutter widgets
   -> feature controllers
   -> CoreController
   -> CoreGateway
-  -> future Rustbox Dart adapter
+  -> RustBox gRPC adapter
 ```
 
-The future adapter should implement
-`lib/core/runtime/core_gateway.dart`. No feature or widget should import a
-Rustbox package directly.
+`CoreGateway` keeps widgets independent from generated protobuf and process
+management code. Put `rustbox-app.exe` beside LitheNet or under `bin/`, or set
+`LITHENET_RUSTBOX_BIN` to an explicit development binary.
 
 ## Run
 
