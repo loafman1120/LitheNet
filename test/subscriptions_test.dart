@@ -10,6 +10,7 @@ import 'package:lithenet/features/proxies/application/proxy_catalog.dart';
 import 'package:lithenet/features/subscriptions/application/subscriptions_controller.dart';
 import 'package:lithenet/features/subscriptions/data/profile_store.dart';
 import 'package:lithenet/features/subscriptions/data/subscription_fetcher.dart';
+import 'package:lithenet/features/subscriptions/data/subscription_errors.dart';
 import 'package:lithenet/features/subscriptions/data/subscription_headers.dart';
 import 'package:lithenet/features/subscriptions/data/subscription_list_store.dart';
 import 'package:lithenet/features/subscriptions/data/subscription_parser.dart';
@@ -26,37 +27,37 @@ void main() {
     }
   });
 
-  test('parses VLESS and Trojan links into Libbox-ready configs', () async {
-    final parser = const AutoSubscriptionParser();
-    final result = await parser.parse(
-      FetchResult(
-        subscriptionId: 'sub-links',
-        bodyBytes: utf8.encode(
-          'vless://00000000-0000-0000-0000-000000000001@vless.example.com:443?security=tls&sni=cdn.example.com#VLESS%20Node\n'
-          'trojan://secret@trojan.example.com:443?sni=trojan.example.com#Trojan%20Node',
-        ),
-        headers: const {},
-        statusCode: 200,
-        duration: Duration.zero,
-        notModified: false,
+  test('rejects non-sing-box JSON subscription formats', () async {
+    const parser = AutoSubscriptionParser();
+    final result = FetchResult(
+      subscriptionId: 'sub-links',
+      bodyBytes: utf8.encode(
+        'vless://00000000-0000-0000-0000-000000000001@vless.example.com:443?security=tls&sni=cdn.example.com#VLESS%20Node\n'
+        'trojan://secret@trojan.example.com:443?sni=trojan.example.com#Trojan%20Node',
       ),
-      const Subscription(
-        id: 'sub-links',
-        name: 'Links',
-        url: 'https://example.com/sub',
-        formatHint: SubscriptionFormat.v2rayBase64,
-      ),
+      headers: const {},
+      statusCode: 200,
+      duration: Duration.zero,
+      notModified: false,
+    );
+    const subscription = Subscription(
+      id: 'sub-links',
+      name: 'Links',
+      url: 'https://example.com/sub',
+      formatHint: SubscriptionFormat.v2rayBase64,
     );
 
-    expect(result.nodes, hasLength(2));
-    expect(
-      result.nodes[0].metadata['config'],
-      containsPair('uuid', contains('00000000')),
-    );
-    expect(result.nodes[0].metadata['config'], containsPair('port', 443));
-    expect(
-      result.nodes[1].metadata['config'],
-      containsPair('password', 'secret'),
+    // New subscriptions must be complete sing-box JSON configs; legacy
+    // link-based formats are rejected so the parser contract stays explicit.
+    await expectLater(
+      parser.parse(result, subscription),
+      throwsA(
+        isA<SubscriptionException>().having(
+          (error) => error.code,
+          'code',
+          SubscriptionErrorCodes.format,
+        ),
+      ),
     );
   });
 
@@ -132,7 +133,8 @@ void main() {
       await serving;
 
       expect(result.statusCode, HttpStatus.ok);
-      expect(capturedHeaders[HttpHeaders.userAgentHeader], 'sing-box');
+      expect(capturedHeaders[HttpHeaders.userAgentHeader],
+          SubscriptionRequestDefaults.userAgent);
       expect(capturedHeaders[HttpHeaders.acceptHeader], '*/*');
       expect(
         capturedHeaders[HttpHeaders.acceptLanguageHeader],
@@ -145,10 +147,10 @@ void main() {
     }
   });
 
-  test('detects Clash YAML profile and counts nodes', () async {
+  test('parses sing-box JSON subscription into nodes', () async {
     const parser = AutoSubscriptionParser();
     const subscription = Subscription(
-      id: 'sub-1',
+      id: 'sub-singbox',
       name: 'Demo',
       url: 'https://example.com/sub',
     );
@@ -158,13 +160,15 @@ void main() {
         statusCode: 200,
         headers: const {},
         bodyBytes: utf8.encode('''
-proxies:
-  - name: HK-01
-    type: vmess
-  - name: JP-01
-    type: trojan
-rules:
-  - MATCH,DIRECT
+{
+  "outbounds": [
+    {"type": "direct", "tag": "direct"},
+    {"type": "block", "tag": "block"},
+    {"type": "urltest", "tag": "auto"},
+    {"type": "anytls", "tag": "HK-01", "server": "node.example.com", "server_port": 443, "password": "secret"},
+    {"type": "vless", "tag": "JP-01", "server": "jp.example.com", "server_port": 8443, "uuid": "00000000-0000-0000-0000-000000000001"}
+  ]
+}
 '''),
         duration: Duration.zero,
         notModified: false,
@@ -172,9 +176,18 @@ rules:
       subscription,
     );
 
-    expect(profile.format, SubscriptionFormat.clashYaml);
+    expect(profile.format, SubscriptionFormat.singBoxJson);
+    // direct/block/urltest are control outbounds and must be filtered out.
     expect(profile.nodeCount, 2);
-    expect(profile.rawHash, isNotEmpty);
+    expect(profile.nodes.map((node) => node.name), ['HK-01', 'JP-01']);
+    expect(
+      profile.nodes.first.metadata['config'],
+      containsPair('server_port', 443),
+    );
+    expect(
+      profile.nodes.last.metadata['config'],
+      containsPair('uuid', contains('00000000')),
+    );
   });
 
   test('subscription updates feed proxy catalog and controller', () async {

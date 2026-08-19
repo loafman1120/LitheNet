@@ -79,4 +79,49 @@ void main() {
     expect(outbounds, contains(containsPair('tag', 'proxy')));
     expect(config['route'], containsPair('final', 'proxy'));
   });
+
+  test('strips invalid ALPN only from anytls outbounds', () {
+    final config = <String, dynamic>{
+      'outbounds': [
+        {
+          'type': 'anytls',
+          'tag': 'anytls-node',
+          'tls': {'enabled': true, 'alpn': ['h3']},
+        },
+        {
+          'type': 'hysteria2',
+          'tag': 'hy2-node',
+          'tls': {'enabled': true, 'alpn': ['h3']},
+        },
+        {'type': 'direct', 'tag': 'direct'},
+      ],
+    };
+
+    LibboxConfigBuilder.normalizeAnyTlsAlpn(config);
+
+    final outbounds = config['outbounds'] as List;
+    final anyTls = outbounds[0] as Map;
+    final hy2 = outbounds[1] as Map;
+    expect(anyTls['tls'], isNot(contains('alpn')));
+    expect(hy2['tls'], containsPair('alpn', ['h3']));
+  });
+
+  test('does not create a tun inbound in mixed mode', () {
+    final inbounds = LibboxConfigBuilder.buildInbounds(
+      const AppSettings(proxyMode: ProxyMode.mixed, mixedPort: 2080),
+    );
+
+    expect(inbounds, hasLength(1));
+    expect(inbounds.single, containsPair('type', 'mixed'));
+    expect(inbounds.single, containsPair('listen_port', 2080));
+  });
+
+  test('creates a tun inbound only in tun mode', () {
+    final inbounds = LibboxConfigBuilder.buildInbounds(
+      const AppSettings(proxyMode: ProxyMode.tun, systemProxy: false),
+    );
+
+    expect(inbounds, hasLength(1));
+    expect(inbounds.single, containsPair('type', 'tun'));
+  });
 }

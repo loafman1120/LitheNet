@@ -111,7 +111,7 @@ class AutoSubscriptionParser implements SubscriptionParser {
     }
 
     final now = DateTime.now();
-    final nodes = const <ProxyNode>[];
+    final nodes = _parseSingBoxNodes(rawText);
     return ParsedProfile(
       id: 'profile_${now.microsecondsSinceEpoch}',
       subscriptionId: subscription.id,
@@ -212,9 +212,7 @@ class AutoSubscriptionParser implements SubscriptionParser {
       }
       return _dedupe([
         for (final item in outbounds)
-          if (item is Map &&
-              item['type'] != 'direct' &&
-              item['type'] != 'block')
+          if (item is Map && !_isControlOutbound(item['type']))
             _node(
               name: (item['tag'] as String?) ?? 'Proxy',
               type: (item['type'] as String?) ?? 'unknown',
@@ -225,6 +223,13 @@ class AutoSubscriptionParser implements SubscriptionParser {
     } catch (_) {
       return const [];
     }
+  }
+
+  bool _isControlOutbound(Object? type) {
+    return switch (type) {
+      'direct' || 'block' || 'dns' || 'urltest' || 'selector' => true,
+      _ => false,
+    };
   }
 
   List<ProxyNode> _parseV2RayNodes(String text) {

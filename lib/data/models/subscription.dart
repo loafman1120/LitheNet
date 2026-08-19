@@ -15,9 +15,10 @@ enum SubscriptionUpdateStatus { idle, updating, updated, noChange, failed }
 class SubscriptionRequestDefaults {
   const SubscriptionRequestDefaults._();
 
-  // Do not change this value. Subscription providers use it to select a
-  // sing-box-compatible response format.
-  static const userAgent = 'sing-box';
+  // Match SFM/SFI's versioned User-Agent so providers can select a config
+  // compatible with the embedded sing-box runtime.
+  static const userAgent =
+      'SFM/0.2.0 (Build 0.2.0; sing-box 1.13.19; language zh_CN)';
 
   static const headers = <String, String>{
     'Accept': '*/*',

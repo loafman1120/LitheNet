@@ -98,10 +98,10 @@ class LibboxGateway implements CoreGateway {
   Future<void> configure(AppSettings settings) => _serialize(() async {
     _settings = settings;
     final config = _buildConfig();
-    _core?.checkConfig(config);
+    await _core?.checkConfigAsync(config);
     final service = _service;
     if (service != null) {
-      service.reload(config);
+      await service.reloadAsync(config);
       _applySystemProxy(service);
     }
   });
@@ -113,8 +113,8 @@ class LibboxGateway implements CoreGateway {
     final service = _service;
     if (service != null) {
       final config = _buildConfig();
-      _core!.checkConfig(config);
-      service.reload(config);
+      await _core!.checkConfigAsync(config);
+      await service.reloadAsync(config);
     }
   });
 
@@ -124,8 +124,8 @@ class LibboxGateway implements CoreGateway {
     final service = _service;
     if (service != null) {
       final next = _buildConfig();
-      _core!.checkConfig(next);
-      service.reload(next);
+      await _core!.checkConfigAsync(next);
+      await service.reloadAsync(next);
     }
   });
 
@@ -145,9 +145,9 @@ class LibboxGateway implements CoreGateway {
     await _ensureCore();
 
     final config = _buildConfig();
-    _core!.checkConfig(config);
+    await _core!.checkConfigAsync(config);
     AppLogger.info('Starting Libbox ${_core!.version()}');
-    final service = _core!.start(config);
+    final service = await _core!.startAsync(config);
     _service = service;
     try {
       _applySystemProxy(service);
@@ -161,7 +161,7 @@ class LibboxGateway implements CoreGateway {
       );
     } on Object {
       await _shutdownTransport();
-      service.close();
+      await service.closeAsync();
       _service = null;
       rethrow;
     }
@@ -179,7 +179,13 @@ class LibboxGateway implements CoreGateway {
     final decoded = jsonDecode(raw);
     if (decoded is! Map) return raw;
     final config = Map<String, dynamic>.from(decoded);
+    // The app owns the inbound surface; never inherit subscription inbounds
+    // (airports ship tun inbounds that fail without admin on Windows).
+    config['inbounds'] = LibboxConfigBuilder.buildInbounds(_settings);
     LibboxConfigBuilder.migrateLegacyTransports(config);
+    LibboxConfigBuilder.migrateLegacyInboundFields(config);
+    LibboxConfigBuilder.migrateLegacyDnsOutbound(config);
+    LibboxConfigBuilder.normalizeAnyTlsAlpn(config);
     final experimental = config['experimental'] is Map
         ? Map<String, dynamic>.from(config['experimental'] as Map)
         : <String, dynamic>{};
@@ -214,7 +220,7 @@ class LibboxGateway implements CoreGateway {
       ),
     );
     await _shutdownTransport();
-    service.close();
+    await service.closeAsync();
     _service = null;
     _groups.clear();
     _connections.clear();

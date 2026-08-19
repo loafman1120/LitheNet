@@ -17,10 +17,7 @@ dependencies:
   go_router: ^17.3.0
   grpc: ^5.1.0
   libbox:
-    git:
-      url: https://github.com/TargetProxy/libbox.git
-      path: ffi/flutter
-      ref: main
+    path: ../libbox/ffi/flutter
   lottie: ^3.5.1
   logger: ^2.7.0
   package_info_plus: ^10.2.0

@@ -368,11 +368,9 @@ packages:
   libbox:
     dependency: "direct main"
     description:
-      path: "ffi/flutter"
-      ref: main
-      resolved-ref: "759a01779c50c65f4b715bef9d5d83bfad62e0e9"
-      url: "https://github.com/TargetProxy/libbox.git"
-    source: git
+      path: "../libbox/ffi/flutter"
+      relative: true
+    source: path
     version: "0.2.0"
   lints:
     dependency: transitive
