@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/app_theme.dart';
@@ -35,6 +35,9 @@ class LitheNetApp extends StatelessWidget {
             subscriptionsController!.bindProxyCatalog(
               ref.read(proxyCatalogProvider),
             );
+            subscriptionsController!.bindCoreController(
+              ref.read(coreControllerProvider),
+            );
             return subscriptionsController!;
           }),
       ],
@@ -52,6 +55,12 @@ class _LitheNetAppView extends ConsumerStatefulWidget {
 
 class _LitheNetAppViewState extends ConsumerState<_LitheNetAppView> {
   late final AppRouter _appRouter = AppRouter();
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(subscriptionsControllerProvider);
+  }
 
   @override
   Widget build(BuildContext context) {

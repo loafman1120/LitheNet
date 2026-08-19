@@ -13,9 +13,53 @@ import 'package:lithenet/features/subscriptions/data/subscription_fetcher.dart';
 import 'package:lithenet/features/subscriptions/data/subscription_headers.dart';
 import 'package:lithenet/features/subscriptions/data/subscription_list_store.dart';
 import 'package:lithenet/features/subscriptions/data/subscription_parser.dart';
+import 'package:lithenet/features/subscriptions/data/subscription_url_normalizer.dart';
 import 'package:lithenet/features/subscriptions/data/subscriptions_repository.dart';
 
 void main() {
+  test('subscription URL validation rejects malformed percent encoding', () {
+    const normalizer = SubscriptionUrlNormalizer();
+
+    for (final input in ['%', 'https%3A%2F%2Fexample.com%ZZ', 'prefix%2']) {
+      expect(normalizer.normalize(input), isNull);
+      expect(normalizer.isValid(input), isFalse);
+    }
+  });
+
+  test('parses VLESS and Trojan links into Libbox-ready configs', () async {
+    final parser = const AutoSubscriptionParser();
+    final result = await parser.parse(
+      FetchResult(
+        subscriptionId: 'sub-links',
+        bodyBytes: utf8.encode(
+          'vless://00000000-0000-0000-0000-000000000001@vless.example.com:443?security=tls&sni=cdn.example.com#VLESS%20Node\n'
+          'trojan://secret@trojan.example.com:443?sni=trojan.example.com#Trojan%20Node',
+        ),
+        headers: const {},
+        statusCode: 200,
+        duration: Duration.zero,
+        notModified: false,
+      ),
+      const Subscription(
+        id: 'sub-links',
+        name: 'Links',
+        url: 'https://example.com/sub',
+        formatHint: SubscriptionFormat.v2rayBase64,
+      ),
+    );
+
+    expect(result.nodes, hasLength(2));
+    expect(
+      result.nodes[0].metadata['config'],
+      containsPair('uuid', contains('00000000')),
+    );
+    expect(result.nodes[0].metadata['config'], containsPair('port', 443));
+    expect(
+      result.nodes[1].metadata['config'],
+      containsPair('password', 'secret'),
+    );
+  });
+
   test('parses subscription metadata headers', () {
     final metadata = const SubscriptionHeaderParser().parse({
       'Profile-Title': 'base64:${base64.encode(utf8.encode('工作订阅'))}',
@@ -88,7 +132,7 @@ void main() {
       await serving;
 
       expect(result.statusCode, HttpStatus.ok);
-      expect(capturedHeaders[HttpHeaders.userAgentHeader], 'Lithe/0.1');
+      expect(capturedHeaders[HttpHeaders.userAgentHeader], 'sing-box');
       expect(capturedHeaders[HttpHeaders.acceptHeader], '*/*');
       expect(
         capturedHeaders[HttpHeaders.acceptLanguageHeader],
@@ -170,6 +214,20 @@ rules:
     expect(controller.lastError, contains('Failed to save subscription'));
   });
 
+  test('can add after loading an unmodifiable subscription list', () async {
+    final controller = SubscriptionsController(
+      store: _UnmodifiableSubscriptionListStore(),
+      repository: _FakeSubscriptionRepository(),
+    );
+    addTearDown(controller.dispose);
+
+    await controller.load();
+    final added = await controller.addSubscription('https://example.com/sub');
+
+    expect(added, isTrue);
+    expect(controller.subscriptions, hasLength(1));
+  });
+
   test('loads persisted subscriptions and restores proxy catalog', () async {
     final directory = await Directory.systemTemp.createTemp(
       'lithenet_subscriptions',
@@ -241,6 +299,14 @@ class _ThrowingSubscriptionListStore implements SubscriptionListStore {
   Future<void> save(List<Subscription> subscriptions) async {
     throw const FileSystemException('write failed');
   }
+}
+
+class _UnmodifiableSubscriptionListStore implements SubscriptionListStore {
+  @override
+  Future<List<Subscription>> load() async => List.unmodifiable(const []);
+
+  @override
+  Future<void> save(List<Subscription> subscriptions) async {}
 }
 
 class _FakeSubscriptionRepository implements SubscriptionRepository {

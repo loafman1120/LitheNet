@@ -1,7 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lithenet/data/models/proxy_node.dart';
 import 'package:lithenet/data/models/subscription.dart';
+import 'package:lithenet/core/runtime/core_gateway.dart';
+import 'package:lithenet/core/runtime/core_models.dart';
+import 'package:lithenet/data/models/app_settings.dart';
 import 'package:lithenet/features/subscriptions/application/subscriptions_controller.dart';
 import 'package:lithenet/features/subscriptions/data/subscription_parser.dart';
 import 'package:lithenet/features/subscriptions/data/subscriptions_repository.dart';
@@ -23,6 +26,21 @@ void main() {
     expect(find.text('Subs'), findsOneWidget);
     expect(find.text('Logs'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
+  });
+
+  testWidgets('shows the runtime error when connecting fails', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(LitheNetApp(coreGateway: _FailingCoreGateway()));
+    await tester.pump();
+    await tester.tap(find.text('Connect'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Connection Error'), findsOneWidget);
+    expect(find.text('Unable to start Libbox.'), findsNWidgets(2));
+    expect(find.byType(SnackBar), findsOneWidget);
+    expect(find.text('View logs'), findsOneWidget);
   });
 
   testWidgets('adds a subscription from the subscriptions page', (
@@ -103,6 +121,57 @@ void main() {
       findsOneWidget,
     );
   });
+}
+
+class _FailingCoreGateway implements CoreGateway {
+  @override
+  String get name => 'Failing test gateway';
+
+  @override
+  bool get isAvailable => true;
+
+  @override
+  Stream<CoreSnapshot> get snapshots => const Stream.empty();
+
+  @override
+  Future<void> setRawConfig(String? config) async {}
+
+  @override
+  Future<CoreSnapshot> current() async =>
+      const CoreSnapshot(lifecycle: CoreLifecycle.stopped, message: 'Ready.');
+
+  @override
+  Future<void> configure(AppSettings settings) async {}
+
+  @override
+  Future<void> setProxyNodes(List<ProxyNode> nodes) async {}
+
+  @override
+  Future<void> start() => Future.error('Unable to start Libbox.');
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  Future<void> selectOutbound(String groupId, String outboundId) async {}
+
+  @override
+  Future<int?> testLatency(String outboundId) async => null;
+
+  @override
+  Future<void> closeConnection(String connectionId) async {}
+
+  @override
+  Future<int> closeAllConnections() async => 0;
+
+  @override
+  Future<int> refreshRuleSets() async => 0;
+
+  @override
+  Future<void> clearLogs() async {}
+
+  @override
+  Future<void> dispose() async {}
 }
 
 class _WidgetFakeSubscriptionRepository implements SubscriptionRepository {

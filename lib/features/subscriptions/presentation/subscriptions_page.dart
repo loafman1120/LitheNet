@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/app_providers.dart';
@@ -35,33 +35,32 @@ class _SubscriptionsPageState extends ConsumerState<SubscriptionsPage> {
           ),
         ],
       ),
-      body:
-          subs.isEmpty
-              ? EmptyState(
-                icon: Icons.rss_feed_outlined,
-                title: 'No subscriptions',
-                description: 'Add a subscription URL to get started.',
-                action: FilledButton.icon(
-                  onPressed: _showAddSheet,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Subscription'),
-                ),
-              )
-              : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: subs.length,
-                itemBuilder: (context, index) {
-                  final sub = subs[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: SubscriptionCard(
-                      subscription: sub,
-                      onTap: () {},
-                      onMenuSelected: (action) => _handleMenu(action, sub.id),
-                    ),
-                  );
-                },
+      body: subs.isEmpty
+          ? EmptyState(
+              icon: Icons.rss_feed_outlined,
+              title: 'No subscriptions',
+              description: 'Add a subscription URL to get started.',
+              action: FilledButton.icon(
+                onPressed: _showAddSheet,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Subscription'),
               ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: subs.length,
+              itemBuilder: (context, index) {
+                final sub = subs[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SubscriptionCard(
+                    subscription: sub,
+                    onTap: () {},
+                    onMenuSelected: (action) => _handleMenu(action, sub.id),
+                  ),
+                );
+              },
+            ),
     );
   }
 
@@ -115,61 +114,59 @@ class _SubscriptionsPageState extends ConsumerState<SubscriptionsPage> {
     final controller = TextEditingController();
     showDialog(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text('Rename'),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Name'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () async {
-                  final name = controller.text.trim();
-                  if (name.isNotEmpty) {
-                    await ref
-                        .read(subscriptionsControllerProvider)
-                        .renameSubscription(id, name);
-                  }
-                  if (!mounted) return;
-                  Navigator.pop(context);
-                },
-                child: const Text('Save'),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Rename'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
           ),
+          FilledButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                await ref
+                    .read(subscriptionsControllerProvider)
+                    .renameSubscription(id, name);
+              }
+              if (!dialogContext.mounted) return;
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 
   void _showDeleteConfirm(String id) {
     showDialog(
       context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text('Delete subscription?'),
-            content: const Text('This action cannot be undone.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () async {
-                  await ref
-                      .read(subscriptionsControllerProvider)
-                      .removeSubscription(id);
-                  if (!mounted) return;
-                  Navigator.pop(context);
-                },
-                child: const Text('Delete'),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete subscription?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
           ),
+          FilledButton(
+            onPressed: () async {
+              await ref
+                  .read(subscriptionsControllerProvider)
+                  .removeSubscription(id);
+              if (!dialogContext.mounted) return;
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
 

@@ -9,6 +9,12 @@ class ProxyCatalog extends ChangeNotifier {
 
   List<ProxyGroup> get groups => List.unmodifiable(_groups);
 
+  void clear() {
+    if (_groups.isEmpty) return;
+    _groups = [];
+    notifyListeners();
+  }
+
   void replaceFromProfile(ParsedProfile profile) {
     if (profile.nodes.isEmpty) {
       return;

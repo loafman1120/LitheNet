@@ -2,6 +2,16 @@ class SubscriptionUrlNormalizer {
   const SubscriptionUrlNormalizer();
 
   String? normalize(String input) {
+    try {
+      return _normalize(input);
+    } on FormatException {
+      return null;
+    } on ArgumentError {
+      return null;
+    }
+  }
+
+  String? _normalize(String input) {
     final trimmed = _stripDecorations(input);
     if (trimmed.isEmpty) {
       return null;

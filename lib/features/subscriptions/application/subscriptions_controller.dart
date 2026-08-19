@@ -4,8 +4,10 @@ import 'package:flutter/widgets.dart';
 
 import '../../../data/models/subscription.dart';
 import '../../proxies/application/proxy_catalog.dart';
+import '../../../core/runtime/core_controller.dart';
 import '../data/profile_store.dart';
 import '../data/subscription_list_store.dart';
+import '../data/subscription_parser.dart';
 import '../data/subscription_url_normalizer.dart';
 import '../data/subscriptions_repository.dart';
 
@@ -30,13 +32,16 @@ class SubscriptionsController extends ChangeNotifier {
   final SubscriptionUrlNormalizer _urlNormalizer =
       const SubscriptionUrlNormalizer();
   ProxyCatalog? _proxyCatalog;
+  CoreController? _coreController;
   List<Subscription> _subscriptions;
   bool _busy = false;
   String? _lastError;
+  Future<void> _restoreTail = Future<void>.value();
 
   List<Subscription> get subscriptions => List.unmodifiable(_subscriptions);
   bool get busy => _busy;
   String? get lastError => _lastError;
+  Future<void> get ready => _restoreTail;
 
   Subscription? get activeSubscription {
     try {
@@ -48,15 +53,21 @@ class SubscriptionsController extends ChangeNotifier {
 
   void bindProxyCatalog(ProxyCatalog catalog) {
     _proxyCatalog = catalog;
-    _restoreActiveProfile();
+    _scheduleRestore();
+  }
+
+  void bindCoreController(CoreController controller) {
+    _coreController = controller;
+    controller.setStartupBarrier(() => ready);
+    _scheduleRestore();
   }
 
   Future<void> load() async {
     try {
-      _subscriptions = await _store.load();
+      _subscriptions = List.of(await _store.load());
       _lastError = null;
       notifyListeners();
-      await _restoreActiveProfile();
+      await _scheduleRestore();
     } on Object catch (error) {
       _lastError = 'Failed to load subscriptions: $error';
       notifyListeners();
@@ -74,10 +85,9 @@ class SubscriptionsController extends ChangeNotifier {
     final normalizedName = name?.trim();
     final sub = Subscription(
       id: id,
-      name:
-          normalizedName == null || normalizedName.isEmpty
-              ? 'Subscription ${_subscriptions.length + 1}'
-              : normalizedName,
+      name: normalizedName == null || normalizedName.isEmpty
+          ? 'Subscription ${_subscriptions.length + 1}'
+          : normalizedName,
       url: normalizedUrl,
     );
     _subscriptions.add(sub);
@@ -105,7 +115,7 @@ class SubscriptionsController extends ChangeNotifier {
     _subscriptions.removeWhere((s) => s.id == id);
     await _persist();
     notifyListeners();
-    await _restoreActiveProfile();
+    await _scheduleRestore();
   }
 
   Future<void> renameSubscription(String id, String newName) async {
@@ -117,13 +127,12 @@ class SubscriptionsController extends ChangeNotifier {
   }
 
   Future<void> setActive(String id) async {
-    _subscriptions =
-        _subscriptions.map((s) {
-          return s.copyWith(enabled: s.id == id);
-        }).toList();
+    _subscriptions = _subscriptions.map((s) {
+      return s.copyWith(enabled: s.id == id);
+    }).toList();
     await _persist();
     notifyListeners();
-    await _restoreActiveProfile();
+    await _scheduleRestore();
   }
 
   Future<void> updateSubscription(String id) async {
@@ -144,17 +153,17 @@ class SubscriptionsController extends ChangeNotifier {
       _subscriptions[currentIndex] = result.subscription;
     }
     final profile = result.profile;
-    if (profile != null) {
+    if (profile != null && result.subscription.enabled) {
       _proxyCatalog?.replaceFromProfile(profile);
+      await _applyProfileToCore(profile);
     }
     _busy = _subscriptions.any(
       (subscription) =>
           subscription.updateStatus == SubscriptionUpdateStatus.updating,
     );
-    _lastError =
-        result.status == SubscriptionUpdateStatus.failed
-            ? result.message ?? result.subscription.lastError
-            : null;
+    _lastError = result.status == SubscriptionUpdateStatus.failed
+        ? result.message ?? result.subscription.lastError
+        : null;
     try {
       await _persist();
     } on Object catch (error) {
@@ -199,13 +208,39 @@ class SubscriptionsController extends ChangeNotifier {
   Future<void> _restoreActiveProfile() async {
     final catalog = _proxyCatalog;
     final subscription = activeSubscription;
-    if (catalog == null || subscription == null) {
+    if (subscription == null) {
+      catalog?.clear();
+      await _coreController?.setRawConfig(null);
+      await _coreController?.setProxyNodes(const []);
       return;
     }
-    final profile = await _profileStore.currentFor(subscription.id);
+    if (catalog == null) {
+      return;
+    }
+    var profile = await _profileStore.currentFor(subscription.id);
     if (profile != null) {
       catalog.replaceFromProfile(profile);
+      await _applyProfileToCore(profile);
     }
+  }
+
+  Future<void> _applyProfileToCore(ParsedProfile profile) async {
+    final core = _coreController;
+    if (core == null) return;
+    if (profile.format == SubscriptionFormat.singBoxJson) {
+      await core.setRawConfig(profile.rawText);
+    } else {
+      await core.setRawConfig(null);
+      await core.setProxyNodes(profile.nodes);
+    }
+  }
+
+  Future<void> _scheduleRestore() {
+    _restoreTail = _restoreTail.then<void>(
+      (_) => _restoreActiveProfile(),
+      onError: (_, _) => _restoreActiveProfile(),
+    );
+    return _restoreTail;
   }
 
   Future<void> _persist() {

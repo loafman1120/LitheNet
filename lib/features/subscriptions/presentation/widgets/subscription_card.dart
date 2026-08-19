@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/format_bytes.dart';
@@ -47,23 +47,6 @@ class SubscriptionCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (sub.enabled)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primaryContainer,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  'Active',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.onPrimaryContainer,
-                                  ),
-                                ),
-                              ),
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -85,30 +68,30 @@ class SubscriptionCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (sub.enabled) ...[
+                    _ActiveChip(theme: theme),
+                    const SizedBox(width: 6),
+                  ],
                   _StatusChip(subscription: sub),
                   const SizedBox(width: 4),
                   PopupMenuButton<String>(
                     onSelected: onMenuSelected,
-                    itemBuilder:
-                        (_) => [
-                          if (!sub.enabled)
-                            const PopupMenuItem(
-                              value: 'use',
-                              child: Text('Use'),
-                            ),
-                          const PopupMenuItem(
-                            value: 'update',
-                            child: Text('Update'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'rename',
-                            child: Text('Rename'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Text('Delete'),
-                          ),
-                        ],
+                    itemBuilder: (_) => [
+                      if (!sub.enabled)
+                        const PopupMenuItem(value: 'use', child: Text('Use')),
+                      const PopupMenuItem(
+                        value: 'update',
+                        child: Text('Update'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'rename',
+                        child: Text('Rename'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Delete'),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -121,10 +104,9 @@ class SubscriptionCard extends StatelessWidget {
                 Text(
                   'Expires: ${_formatDate(sub.expiresAt!)}',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color:
-                        sub.isExpired
-                            ? theme.colorScheme.error
-                            : theme.colorScheme.onSurfaceVariant,
+                    color: sub.isExpired
+                        ? theme.colorScheme.error
+                        : theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -148,6 +130,30 @@ class SubscriptionCard extends StatelessWidget {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+}
+
+class _ActiveChip extends StatelessWidget {
+  const _ActiveChip({required this.theme});
+
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        'Active',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onPrimaryContainer,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
   }
 }
 

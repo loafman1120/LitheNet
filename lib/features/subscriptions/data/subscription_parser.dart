@@ -1,4 +1,10 @@
+// Legacy node conversion helpers are retained only for reading old cached
+// profiles; new subscriptions are accepted as complete sing-box JSON.
+// ignore_for_file: unused_element
+
 import 'dart:convert';
+
+import 'package:yaml/yaml.dart';
 
 import '../../../data/models/proxy_node.dart';
 import '../../../data/models/subscription.dart';
@@ -97,8 +103,15 @@ class AutoSubscriptionParser implements SubscriptionParser {
       );
     }
 
+    if (format != SubscriptionFormat.singBoxJson) {
+      throw const SubscriptionException(
+        SubscriptionErrorCodes.format,
+        'Only complete sing-box JSON subscriptions are supported.',
+      );
+    }
+
     final now = DateTime.now();
-    final nodes = _parseNodes(rawText, format);
+    final nodes = const <ProxyNode>[];
     return ParsedProfile(
       id: 'profile_${now.microsecondsSinceEpoch}',
       subscriptionId: subscription.id,
@@ -159,51 +172,33 @@ class AutoSubscriptionParser implements SubscriptionParser {
     }
   }
 
-  List<ProxyNode> _parseNodes(String text, SubscriptionFormat format) {
-    return switch (format) {
-      SubscriptionFormat.clashYaml => _parseClashNodes(text),
-      SubscriptionFormat.singBoxJson => _parseSingBoxNodes(text),
-      SubscriptionFormat.v2rayBase64 => _parseV2RayNodes(text),
-      SubscriptionFormat.surgeConf => _parseSurgeNodes(text),
-      SubscriptionFormat.quantumultX => _parseQuantumultXNodes(text),
-      _ => const [],
-    };
-  }
-
   List<ProxyNode> _parseClashNodes(String text) {
-    final nodes = <ProxyNode>[];
-    String? pendingName;
-    for (final line in const LineSplitter().convert(text)) {
-      final trimmed = line.trim();
-      if (trimmed.startsWith('- name:')) {
-        pendingName = _cleanYamlScalar(trimmed.substring('- name:'.length));
-        continue;
-      }
-      if (pendingName != null && trimmed.startsWith('type:')) {
-        final type = _cleanYamlScalar(trimmed.substring('type:'.length));
-        if (type.isNotEmpty) {
-          nodes.add(
-            _node(
-              name: pendingName,
-              type: type,
-              group: _inferGroup(pendingName),
-            ),
-          );
-        }
-        pendingName = null;
-      }
+    final document = loadYaml(text);
+    if (document is! YamlMap || document['proxies'] is! YamlList) {
+      return const [];
     }
-    return _dedupe(nodes);
+    return _dedupe([
+      for (final item in document['proxies'] as YamlList)
+        if (item is YamlMap && item['name'] != null && item['type'] != null)
+          _node(
+            name: item['name'].toString(),
+            type: item['type'].toString(),
+            group: _inferGroup(item['name'].toString()),
+            config: _plainMap(item),
+          ),
+    ]);
   }
 
-  String _cleanYamlScalar(String value) {
-    final trimmed = value.trim();
-    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-      return trimmed.substring(1, trimmed.length - 1).trim();
-    }
-    return trimmed;
-  }
+  Map<String, dynamic> _plainMap(Map value) => {
+    for (final entry in value.entries)
+      entry.key.toString(): switch (entry.value) {
+        Map nested => _plainMap(nested),
+        List nested => [
+          for (final item in nested) item is Map ? _plainMap(item) : item,
+        ],
+        final scalar => scalar,
+      },
+  };
 
   List<ProxyNode> _parseSingBoxNodes(String text) {
     try {
@@ -224,6 +219,7 @@ class AutoSubscriptionParser implements SubscriptionParser {
               name: (item['tag'] as String?) ?? 'Proxy',
               type: (item['type'] as String?) ?? 'unknown',
               group: _inferGroup((item['tag'] as String?) ?? ''),
+              config: Map<String, dynamic>.from(item),
             ),
       ]);
     } catch (_) {
@@ -299,7 +295,62 @@ class AutoSubscriptionParser implements SubscriptionParser {
     final name = fragment == null || fragment.isEmpty
         ? '${type.toUpperCase()} Node'
         : Uri.decodeComponent(fragment);
-    return _node(name: name, type: type, group: _inferGroup(name));
+    final normalizedType = type.toLowerCase();
+    final query = uri?.queryParameters ?? const <String, String>{};
+    final config = <String, dynamic>{
+      if (uri != null && uri.host.isNotEmpty) 'server': uri.host,
+      if (uri != null && uri.port > 0) 'port': uri.port,
+    };
+    final userInfo = uri == null ? '' : Uri.decodeComponent(uri.userInfo);
+    final userParts = userInfo.split(':');
+    switch (normalizedType) {
+      case 'vless':
+        if (userInfo.isNotEmpty) config['uuid'] = userParts.first;
+        if (query['flow'] != null) config['flow'] = query['flow'];
+        config['tls'] = _linkUsesTls(query);
+        if (query['sni'] != null) config['sni'] = query['sni'];
+        if (query['security']?.toLowerCase() == 'reality' &&
+            query['pbk'] != null) {
+          config['reality'] = {
+            'public_key': query['pbk'],
+            'short_id': query['sid'] ?? '',
+          };
+          if (query['fp'] != null) config['fingerprint'] = query['fp'];
+        }
+      case 'trojan':
+        if (userInfo.isNotEmpty) config['password'] = userParts.first;
+        config['tls'] = true;
+        if (query['sni'] != null) config['sni'] = query['sni'];
+      case 'ss':
+        if (userInfo.isNotEmpty) {
+          final credentials = userInfo.split(':');
+          if (credentials.length > 1) {
+            config['cipher'] = credentials.first;
+            config['password'] = credentials.sublist(1).join(':');
+          }
+        }
+    }
+    final transport = query['type']?.toLowerCase();
+    if (transport == 'ws' || transport == 'websocket') {
+      final transportHost = query['host'] ?? query['peer'] ?? query['sni'];
+      final transportConfig = <String, dynamic>{
+        'type': 'web-socket',
+        'path': query['path'] ?? '/',
+      };
+      if (transportHost != null) transportConfig['host'] = transportHost;
+      config['transport'] = transportConfig;
+    }
+    return _node(
+      name: name,
+      type: type,
+      group: _inferGroup(name),
+      config: config.isEmpty ? null : config,
+    );
+  }
+
+  bool _linkUsesTls(Map<String, String> query) {
+    final security = query['security']?.toLowerCase();
+    return security == 'tls' || security == 'reality';
   }
 
   String _decodeV2RayBody(String text) {
@@ -311,7 +362,12 @@ class AutoSubscriptionParser implements SubscriptionParser {
     }
   }
 
-  ProxyNode _node({required String name, required String type, String? group}) {
+  ProxyNode _node({
+    required String name,
+    required String type,
+    String? group,
+    Map<String, dynamic>? config,
+  }) {
     final normalizedName = name.trim();
     final normalizedType = type.trim().toLowerCase();
     return ProxyNode(
@@ -319,7 +375,7 @@ class AutoSubscriptionParser implements SubscriptionParser {
       name: normalizedName,
       type: normalizedType,
       countryCode: _inferCountryCode(normalizedName),
-      metadata: {'group': ?group},
+      metadata: {'group': ?group, 'config': ?config},
     );
   }
 

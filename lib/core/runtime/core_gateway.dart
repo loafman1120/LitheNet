@@ -1,21 +1,26 @@
 import '../../data/models/app_settings.dart';
+import '../../data/models/proxy_node.dart';
 import 'core_models.dart';
 
 /// Stable app-facing boundary for the native proxy core.
 ///
-/// The future Rustbox Dart package should implement this interface. Widgets and
-/// feature controllers must not import the native package directly.
-abstract interface class CoreGateway {
+/// Widgets and feature controllers must not import libbox directly.
+abstract class CoreGateway {
   String get name;
   bool get isAvailable;
   Stream<CoreSnapshot> get snapshots;
 
   Future<CoreSnapshot> current();
   Future<void> configure(AppSettings settings);
+  Future<void> setProxyNodes(List<ProxyNode> nodes);
+  Future<void> setRawConfig(String? config) async {}
   Future<void> start();
   Future<void> stop();
   Future<void> selectOutbound(String groupId, String outboundId);
   Future<int?> testLatency(String outboundId);
+  Future<void> closeConnection(String connectionId);
+  Future<int> closeAllConnections();
+  Future<int> refreshRuleSets();
   Future<void> clearLogs();
   Future<void> dispose();
 }
@@ -29,14 +34,14 @@ class CoreUnavailableException implements Exception {
   String toString() => message;
 }
 
-/// Explicit placeholder used until the Rustbox Dart bridge is ready.
+/// Explicit placeholder used when the libbox bridge is unavailable.
 class UnavailableCoreGateway implements CoreGateway {
   const UnavailableCoreGateway();
 
-  static const _message = 'Rustbox Dart bridge is not connected yet.';
+  static const _message = 'Libbox is not available.';
 
   @override
-  String get name => 'Rustbox';
+  String get name => 'Libbox';
 
   @override
   bool get isAvailable => false;
@@ -54,6 +59,12 @@ class UnavailableCoreGateway implements CoreGateway {
   Future<void> configure(AppSettings settings) => _unavailable();
 
   @override
+  Future<void> setProxyNodes(List<ProxyNode> nodes) => _unavailable();
+
+  @override
+  Future<void> setRawConfig(String? config) => _unavailable();
+
+  @override
   Future<void> start() => _unavailable();
 
   @override
@@ -65,6 +76,15 @@ class UnavailableCoreGateway implements CoreGateway {
 
   @override
   Future<int?> testLatency(String outboundId) => _unavailable();
+
+  @override
+  Future<void> closeConnection(String connectionId) => _unavailable();
+
+  @override
+  Future<int> closeAllConnections() => _unavailable();
+
+  @override
+  Future<int> refreshRuleSets() => _unavailable();
 
   @override
   Future<void> clearLogs() async {}

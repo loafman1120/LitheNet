@@ -14,9 +14,9 @@ connections, logs, and native handles stays in memory.
 Riverpod provides these long-lived objects from the application composition
 root. Persistence classes do not depend on Riverpod or Flutter widgets.
 
-## Rustbox integration
+## Libbox integration
 
-The future Rustbox adapter receives settings through
+The Libbox adapter receives settings through
 `CoreGateway.configure(AppSettings)`. It must not own settings persistence.
 Core-specific caches and files may live under the existing application-support
 `core/` directory, but their format belongs to the adapter.

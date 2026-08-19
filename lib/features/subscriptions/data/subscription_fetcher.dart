@@ -151,6 +151,7 @@ class HttpSubscriptionFetcher implements SubscriptionFetcher {
   String _effectiveUserAgent(String userAgent) {
     final trimmed = userAgent.trim();
     if (trimmed.isEmpty ||
+        trimmed == 'Lithe/0.1' ||
         trimmed == 'LitheNet/0.1' ||
         trimmed == 'clash.meta') {
       return SubscriptionRequestDefaults.userAgent;

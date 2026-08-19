@@ -1,8 +1,8 @@
 export const siteConfig = {
   title: 'Lithe',
   description: {
-    en: 'A modern, lightweight proxy client built with Flutter and Rustbox.',
-    zh: '基于 Flutter 和 Rustbox 构建的现代轻量级代理客户端。',
+    en: 'A modern, lightweight proxy client built with Flutter and Libbox.',
+    zh: '基于 Flutter 和 Libbox 构建的现代轻量级代理客户端。',
   },
   url: 'https://lithe.loafman.top',
   github: 'https://github.com/loafman1120/LitheNet',

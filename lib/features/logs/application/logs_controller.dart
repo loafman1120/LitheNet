@@ -2,10 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../../core/logging/app_logger.dart';
 import '../../../core/runtime/core_controller.dart';
 import '../../../data/models/log_entry.dart';
 
 class LogsController extends ChangeNotifier {
+  LogsController() {
+    _entries.addAll(AppLogger.entries);
+    _appLogSubscription = AppLogger.entriesStream.listen(addEntry);
+  }
+
   final List<LogEntry> _entries = [];
   LogLevel? _levelFilter;
   String _searchQuery = '';
@@ -13,6 +19,7 @@ class LogsController extends ChangeNotifier {
   Timer? _demoTimer;
   int _demoCounter = 0;
   CoreController? _core;
+  late final StreamSubscription<LogEntry> _appLogSubscription;
 
   List<LogEntry> get entries => List.unmodifiable(_entries);
   LogLevel? get levelFilter => _levelFilter;
@@ -28,14 +35,13 @@ class LogsController extends ChangeNotifier {
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      list =
-          list
-              .where(
-                (e) =>
-                    e.message.toLowerCase().contains(q) ||
-                    e.source.toLowerCase().contains(q),
-              )
-              .toList();
+      list = list
+          .where(
+            (e) =>
+                e.message.toLowerCase().contains(q) ||
+                e.source.toLowerCase().contains(q),
+          )
+          .toList();
     }
 
     return list;
@@ -54,22 +60,25 @@ class LogsController extends ChangeNotifier {
   void togglePause() {
     _paused = !_paused;
     if (!_paused) {
-      _syncFromCore();
+      _entries
+        ..clear()
+        ..addAll(AppLogger.entries);
     }
     notifyListeners();
   }
 
   void clear() {
+    AppLogger.clear();
+    _entries.clear();
+    notifyListeners();
     final core = _core;
     if (core != null) {
       core.clearLogs();
-      return;
     }
-    _entries.clear();
-    notifyListeners();
   }
 
   void addEntry(LogEntry entry) {
+    if (_paused) return;
     _entries.add(entry);
     if (_entries.length > 2000) {
       _entries.removeRange(0, _entries.length - 2000);
@@ -81,9 +90,7 @@ class LogsController extends ChangeNotifier {
     if (_core == core) {
       return;
     }
-    _core?.removeListener(_syncFromCore);
-    _core = core..addListener(_syncFromCore);
-    _syncFromCore();
+    _core = core;
   }
 
   String exportLogs({bool sanitize = false}) {
@@ -148,22 +155,8 @@ class LogsController extends ChangeNotifier {
 
   @override
   void dispose() {
-    _core?.removeListener(_syncFromCore);
+    unawaited(_appLogSubscription.cancel());
     stopDemoLogs();
     super.dispose();
-  }
-
-  void _syncFromCore() {
-    if (_paused) {
-      return;
-    }
-    final core = _core;
-    if (core == null) {
-      return;
-    }
-    _entries
-      ..clear()
-      ..addAll(core.logs);
-    notifyListeners();
   }
 }

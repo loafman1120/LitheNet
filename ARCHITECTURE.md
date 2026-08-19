@@ -5,7 +5,7 @@
 1. Keep Flutter UI independent from the native core implementation.
 2. Keep one observable source of truth for each feature.
 3. Make runtime dependencies replaceable in tests and at app startup.
-4. Avoid code generation until the Rustbox Dart API stabilizes.
+4. Keep the Libbox FFI and command-server boundary replaceable.
 
 ## Layers
 
@@ -22,14 +22,14 @@ or depend on custom `InheritedNotifier` scopes.
 
 ## Native runtime boundary
 
-`CoreGateway` is the only contract the Rustbox integration needs to implement.
+`CoreGateway` is the only contract the Libbox integration needs to implement.
 It exposes lifecycle operations and a stream of immutable `CoreSnapshot`
 values. `CoreController` converts that stream into UI-observable state and
 owns error/busy handling.
 
-`RustBoxGrpcGateway` starts the RustBox sidecar without blocking Flutter's UI
-isolate. It maps authenticated gRPC snapshots, connection metrics, events, and
-sing-box-compatible outbound group updates into `CoreSnapshot` values.
+`LibboxGateway` initializes Libbox without blocking Flutter's UI isolate. It
+maps authenticated command-server streams for status, connections, logs, and
+outbound groups into `CoreSnapshot` values.
 
 ## State ownership
 
@@ -43,12 +43,11 @@ sing-box-compatible outbound group updates into `CoreSnapshot` values.
 
 Controllers currently remain small `ChangeNotifier` state objects, while
 Riverpod handles their lifecycle, injection, observation, and test overrides.
-This avoids a risky all-at-once rewrite and leaves a straightforward path to
-Riverpod `Notifier`/`AsyncNotifier` when Rustbox introduces asynchronous state.
+This keeps the runtime transport asynchronous while leaving a straightforward
+path to Riverpod `Notifier`/`AsyncNotifier` later.
 
-## RustBox process contract
+## Libbox runtime contract
 
-The desktop app launches `rustbox-app run` with an ephemeral loopback gRPC
-port and a random bearer token. All process I/O, readiness checks, polling,
-group subscriptions, commands, and shutdown operations are asynchronous. The
-generated protobuf surface remains below `lib/core/runtime/grpc`.
+The desktop app initializes Libbox with an ephemeral loopback gRPC port and a
+random `x-command-secret`. The generated `daemon.StartedService` protobuf
+surface remains below `lib/core/runtime/grpc`.

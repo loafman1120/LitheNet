@@ -1,13 +1,20 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/format_bytes.dart';
 import '../../../../core/runtime/core_models.dart';
 
 class ConnectionTile extends StatelessWidget {
-  const ConnectionTile({required this.connection, super.key});
+  const ConnectionTile({
+    required this.connection,
+    this.onClose,
+    this.closing = false,
+    super.key,
+  });
 
   final CoreConnection connection;
+  final VoidCallback? onClose;
+  final bool closing;
 
   @override
   Widget build(BuildContext context) {
@@ -15,8 +22,9 @@ class ConnectionTile extends StatelessWidget {
     final total = connection.uplinkTotal + connection.downlinkTotal;
     final duration = _formatDuration(connection.createdAt, connection.closedAt);
     final networkLabel = connection.network.toUpperCase();
-    final protocolLabel =
-        connection.protocol.isNotEmpty ? connection.protocol : '-';
+    final protocolLabel = connection.protocol.isNotEmpty
+        ? connection.protocol
+        : '-';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -47,6 +55,20 @@ class ConnectionTile extends StatelessWidget {
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
+                  if (onClose != null) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: closing ? null : onClose,
+                      icon: closing
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.close, size: 18),
+                      tooltip: 'Close connection',
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 8),
@@ -87,8 +109,9 @@ class ConnectionTile extends StatelessWidget {
 
   String _formatDuration(int createdAt, int closedAt) {
     if (createdAt <= 0) return '';
-    final end =
-        closedAt > 0 ? closedAt : DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final end = closedAt > 0
+        ? closedAt
+        : DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final seconds = end - createdAt;
     if (seconds < 0) return '';
     if (seconds < 60) return '${seconds}s';

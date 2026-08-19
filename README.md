@@ -1,16 +1,18 @@
 # Lithe
 
-Lithe is a Flutter desktop proxy client backed by RustBox. It starts the
-`rustbox-app` sidecar asynchronously and uses RustBox's authenticated loopback
-gRPC control API for runtime state and commands.
+Lithe is a Flutter desktop proxy client backed by Libbox. It initializes the
+Libbox native library and uses its authenticated loopback gRPC command server
+for runtime state, commands, and logs.
 
 ## Status
 
 - Flutter UI: available
 - Settings and subscription persistence: available
 - Subscription parsing and proxy catalog: available
-- RustBox runtime lifecycle: available through gRPC
+- Libbox runtime lifecycle: available through FFI and gRPC
 - Runtime metrics, connections, events, and outbound groups: available
+- Active URLTest triggering and refreshed latency results: available
+- Libbox logs: streamed through the authenticated gRPC command server
 - GitHub Actions: intentionally removed
 
 ## Architecture
@@ -24,12 +26,16 @@ Flutter widgets
   -> feature controllers
   -> CoreController
   -> CoreGateway
-  -> RustBox gRPC adapter
+  -> Libbox FFI and gRPC adapter
 ```
 
 `CoreGateway` keeps widgets independent from generated protobuf and process
-management code. Put `rustbox-app.exe` beside LitheNet or under `bin/`, or set
-`LITHENET_RUSTBOX_BIN` to an explicit development binary.
+management code. Put the platform native library (`libbox.dll`, `libbox.so`, or
+`libbox.dylib`) beside the application or under `bin/`, or set
+`LIBBOX_LIBRARY` to an explicit path.
+
+During local development, a sibling checkout at `../libbox/build` is also
+searched automatically.
 
 ## Run
 

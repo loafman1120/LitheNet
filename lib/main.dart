@@ -1,6 +1,10 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:ui';
+
+import 'package:material_ui/material_ui.dart';
 
 import 'app/lithenet_app.dart';
+import 'core/logging/app_logger.dart';
 import 'data/storage/app_storage_paths.dart';
 import 'data/storage/json_file_store.dart';
 import 'features/settings/application/settings_controller.dart';
@@ -12,26 +16,59 @@ import 'features/subscriptions/data/subscription_list_store.dart';
 export 'app/lithenet_app.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  await runZonedGuarded(
+    () async {
+      // Binding initialization and runApp must happen in the same zone.
+      WidgetsFlutterBinding.ensureInitialized();
 
-  final paths = await AppStoragePaths.resolve();
-  final settingsStore = SettingsStore(JsonFileStore(paths.settingsFile));
-  final settings = await settingsStore.load();
-  final settingsController = SettingsController(
-    initialSettings: settings,
-    store: settingsStore,
-  );
-  final profileStore = FileProfileStore(paths.profilesDirectory);
-  final subscriptionsController = SubscriptionsController(
-    store: FileSubscriptionListStore(JsonFileStore(paths.subscriptionsFile)),
-    profileStore: profileStore,
-  );
-  await subscriptionsController.load();
+      FlutterError.onError = (details) {
+        FlutterError.presentError(details);
+        AppLogger.error(
+          'Uncaught Flutter framework error',
+          error: details.exception,
+          stackTrace: details.stack,
+        );
+      };
+      PlatformDispatcher.instance.onError = (error, stackTrace) {
+        AppLogger.fatal(
+          'Uncaught asynchronous platform error',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        return true;
+      };
 
-  runApp(
-    LitheNetApp(
-      settingsController: settingsController,
-      subscriptionsController: subscriptionsController,
-    ),
+      AppLogger.info('LitheNet initialization started');
+      final paths = await AppStoragePaths.resolve();
+      final settingsStore = SettingsStore(JsonFileStore(paths.settingsFile));
+      final settings = await settingsStore.load();
+      final settingsController = SettingsController(
+        initialSettings: settings,
+        store: settingsStore,
+      );
+      final profileStore = FileProfileStore(paths.profilesDirectory);
+      final subscriptionsController = SubscriptionsController(
+        store: FileSubscriptionListStore(
+          JsonFileStore(paths.subscriptionsFile),
+        ),
+        profileStore: profileStore,
+      );
+      await subscriptionsController.load();
+
+      AppLogger.info('LitheNet initialization completed');
+      runApp(
+        LitheNetApp(
+          settingsController: settingsController,
+          subscriptionsController: subscriptionsController,
+        ),
+      );
+    },
+    (error, stackTrace) {
+      AppLogger.fatal(
+        'Uncaught error in application zone',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    },
   );
 }

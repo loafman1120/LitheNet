@@ -1,11 +1,22 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router.dart';
 import '../../../../core/theme/app_spacing.dart';
 
 class QuickActionsGrid extends StatelessWidget {
-  const QuickActionsGrid({super.key});
+  const QuickActionsGrid({
+    required this.onTestLatency,
+    required this.onRefreshRuleSets,
+    required this.onCloseConnections,
+    required this.enabled,
+    super.key,
+  });
+
+  final VoidCallback onTestLatency;
+  final VoidCallback onRefreshRuleSets;
+  final VoidCallback onCloseConnections;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -27,8 +38,8 @@ class QuickActionsGrid extends StatelessWidget {
                 Expanded(
                   child: _QuickAction(
                     icon: Icons.speed,
-                    label: 'Test Latency',
-                    onTap: () {},
+                    label: 'Test Proxies',
+                    onTap: enabled ? onTestLatency : null,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.smallGap),
@@ -37,6 +48,26 @@ class QuickActionsGrid extends StatelessWidget {
                     icon: Icons.hub,
                     label: 'Change Node',
                     onTap: () => context.go(AppRoute.proxies.path),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.smallGap),
+            Row(
+              children: [
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.rule_folder_outlined,
+                    label: 'Refresh Rules',
+                    onTap: enabled ? onRefreshRuleSets : null,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.smallGap),
+                Expanded(
+                  child: _QuickAction(
+                    icon: Icons.cancel_presentation_outlined,
+                    label: 'Close Connections',
+                    onTap: enabled ? onCloseConnections : null,
                   ),
                 ),
               ],
@@ -77,7 +108,7 @@ class _QuickAction extends StatelessWidget {
 
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-import '../../app/app_identity.dart';
-
 enum SubscriptionFormat {
   auto,
   clashYaml,
@@ -17,7 +15,9 @@ enum SubscriptionUpdateStatus { idle, updating, updated, noChange, failed }
 class SubscriptionRequestDefaults {
   const SubscriptionRequestDefaults._();
 
-  static const userAgent = AppIdentity.userAgent;
+  // Do not change this value. Subscription providers use it to select a
+  // sing-box-compatible response format.
+  static const userAgent = 'sing-box';
 
   static const headers = <String, String>{
     'Accept': '*/*',
