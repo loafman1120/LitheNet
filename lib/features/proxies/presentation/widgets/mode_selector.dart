@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../../application/proxies_controller.dart';
+import '../../application/proxies_notifier.dart';
 
 class ModeSelector extends StatelessWidget {
   const ModeSelector({required this.mode, required this.onChanged, super.key});

@@ -1,8 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/app_providers.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../application/subscriptions_notifier.dart';
 import 'widgets/add_subscription_sheet.dart';
 import 'widgets/subscription_card.dart';
 
@@ -16,15 +16,15 @@ class SubscriptionsPage extends ConsumerStatefulWidget {
 class _SubscriptionsPageState extends ConsumerState<SubscriptionsPage> {
   @override
   Widget build(BuildContext context) {
-    final controller = ref.watch(subscriptionsControllerProvider);
-    final subs = controller.subscriptions;
+    final state = ref.watch(subscriptionsProvider);
+    final subs = state.subscriptions;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Subscriptions'),
         actions: [
           IconButton(
-            onPressed: controller.busy ? null : _updateAll,
+            onPressed: state.busy ? null : _updateAll,
             icon: const Icon(Icons.sync),
             tooltip: 'Update all',
           ),
@@ -75,26 +75,28 @@ class _SubscriptionsPageState extends ConsumerState<SubscriptionsPage> {
     final url = result['url'];
     if (url == null || url.isEmpty) return;
 
-    final controller = ref.read(subscriptionsControllerProvider);
-    final added = await controller.addSubscription(url, name: result['name']);
+    final notifier = ref.read(subscriptionsProvider.notifier);
+    final added = await notifier.addSubscription(url, name: result['name']);
     if (!mounted) return;
     if (!added) {
-      _showError(controller.lastError ?? 'Subscription was not added.');
+      _showError(
+        ref.read(subscriptionsProvider).lastError ?? 'Subscription was not added.',
+      );
       return;
     }
-    final error = controller.lastError;
+    final error = ref.read(subscriptionsProvider).lastError;
     if (error != null && error.isNotEmpty) {
       _showError(error);
     }
   }
 
   Future<void> _handleMenu(String action, String id) async {
-    final controller = ref.read(subscriptionsControllerProvider);
+    final notifier = ref.read(subscriptionsProvider.notifier);
     switch (action) {
       case 'use':
-        await controller.setActive(id);
+        await notifier.setActive(id);
       case 'update':
-        await controller.updateSubscription(id);
+        await notifier.updateSubscription(id);
       case 'rename':
         _showRenameDialog(id);
       case 'delete':
@@ -103,10 +105,10 @@ class _SubscriptionsPageState extends ConsumerState<SubscriptionsPage> {
   }
 
   Future<void> _updateAll() async {
-    final controller = ref.read(subscriptionsControllerProvider);
-    final ids = controller.subscriptions.map((s) => s.id).toList();
+    final notifier = ref.read(subscriptionsProvider.notifier);
+    final ids = ref.read(subscriptionsProvider).subscriptions.map((s) => s.id).toList();
     for (final id in ids) {
-      await controller.updateSubscription(id);
+      await notifier.updateSubscription(id);
     }
   }
 
@@ -131,7 +133,7 @@ class _SubscriptionsPageState extends ConsumerState<SubscriptionsPage> {
               final name = controller.text.trim();
               if (name.isNotEmpty) {
                 await ref
-                    .read(subscriptionsControllerProvider)
+                    .read(subscriptionsProvider.notifier)
                     .renameSubscription(id, name);
               }
               if (!dialogContext.mounted) return;
@@ -158,7 +160,7 @@ class _SubscriptionsPageState extends ConsumerState<SubscriptionsPage> {
           FilledButton(
             onPressed: () async {
               await ref
-                  .read(subscriptionsControllerProvider)
+                  .read(subscriptionsProvider.notifier)
                   .removeSubscription(id);
               if (!dialogContext.mounted) return;
               Navigator.pop(dialogContext);

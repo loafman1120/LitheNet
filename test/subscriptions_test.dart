@@ -1,13 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lithenet/core/runtime/core_gateway.dart';
+import 'package:lithenet/core/runtime/core_notifier.dart';
 import 'package:lithenet/data/models/proxy_node.dart';
 import 'package:lithenet/data/models/subscription.dart';
 import 'package:lithenet/data/storage/json_file_store.dart';
-import 'package:lithenet/features/proxies/application/proxies_controller.dart';
+import 'package:lithenet/features/proxies/application/proxies_notifier.dart';
 import 'package:lithenet/features/proxies/application/proxy_catalog.dart';
-import 'package:lithenet/features/subscriptions/application/subscriptions_controller.dart';
+import 'package:lithenet/features/subscriptions/application/subscriptions_notifier.dart';
 import 'package:lithenet/features/subscriptions/data/profile_store.dart';
 import 'package:lithenet/features/subscriptions/data/subscription_fetcher.dart';
 import 'package:lithenet/features/subscriptions/data/subscription_errors.dart';
@@ -190,55 +193,79 @@ void main() {
     );
   });
 
-  test('subscription updates feed proxy catalog and controller', () async {
-    final catalog = ProxyCatalog();
-    final controller = SubscriptionsController(
-      repository: _FakeSubscriptionRepository(),
-    )..bindProxyCatalog(catalog);
-    final proxies = ProxiesController(catalog: catalog);
+  test('subscription updates feed proxy catalog and notifier', () async {
+    final container = ProviderContainer(
+      overrides: [
+        coreGatewayProvider.overrideWithValue(const UnavailableCoreGateway()),
+        subscriptionRepositoryProvider.overrideWithValue(
+          _FakeSubscriptionRepository(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
 
-    await controller.addSubscription('https://example.com/sub', name: 'Demo');
+    final subscriptions = container.read(subscriptionsProvider.notifier);
+    container.read(proxiesProvider.notifier);
 
-    expect(catalog.groups, isNotEmpty);
-    expect(proxies.groups.first.name, 'All');
-    expect(proxies.filteredNodes.map((node) => node.name), contains('HK-01'));
-    expect(controller.subscriptions.single.nodeCount, 2);
+    await subscriptions.addSubscription('https://example.com/sub', name: 'Demo');
 
-    controller.dispose();
-    proxies.dispose();
-    catalog.dispose();
+    expect(container.read(proxyCatalogProvider).groups, isNotEmpty);
+    final proxyState = container.read(proxiesProvider);
+    expect(proxyState.groups.first.name, 'All');
+    expect(proxyState.filteredNodes.map((node) => node.name), contains('HK-01'));
+    expect(
+      container.read(subscriptionsProvider).subscriptions.single.nodeCount,
+      2,
+    );
   });
 
   test('keeps subscription visible when persistence fails', () async {
-    final controller = SubscriptionsController(
-      store: _ThrowingSubscriptionListStore(),
-      repository: _FakeSubscriptionRepository(),
+    final container = ProviderContainer(
+      overrides: [
+        coreGatewayProvider.overrideWithValue(const UnavailableCoreGateway()),
+        subscriptionListStoreProvider.overrideWithValue(
+          _ThrowingSubscriptionListStore(),
+        ),
+        subscriptionRepositoryProvider.overrideWithValue(
+          _FakeSubscriptionRepository(),
+        ),
+      ],
     );
-    addTearDown(controller.dispose);
+    addTearDown(container.dispose);
 
-    final added = await controller.addSubscription('https://example.com/sub');
+    final subscriptions = container.read(subscriptionsProvider.notifier);
+    final added = await subscriptions.addSubscription('https://example.com/sub');
 
     expect(added, isTrue);
-    expect(controller.subscriptions.single.url, 'https://example.com/sub');
+    final state = container.read(subscriptionsProvider);
+    expect(state.subscriptions.single.url, 'https://example.com/sub');
     expect(
-      controller.subscriptions.single.updateStatus,
+      state.subscriptions.single.updateStatus,
       SubscriptionUpdateStatus.failed,
     );
-    expect(controller.lastError, contains('Failed to save subscription'));
+    expect(state.lastError, contains('Failed to save subscription'));
   });
 
   test('can add after loading an unmodifiable subscription list', () async {
-    final controller = SubscriptionsController(
-      store: _UnmodifiableSubscriptionListStore(),
-      repository: _FakeSubscriptionRepository(),
+    final container = ProviderContainer(
+      overrides: [
+        coreGatewayProvider.overrideWithValue(const UnavailableCoreGateway()),
+        subscriptionListStoreProvider.overrideWithValue(
+          _UnmodifiableSubscriptionListStore(),
+        ),
+        subscriptionRepositoryProvider.overrideWithValue(
+          _FakeSubscriptionRepository(),
+        ),
+      ],
     );
-    addTearDown(controller.dispose);
+    addTearDown(container.dispose);
 
-    await controller.load();
-    final added = await controller.addSubscription('https://example.com/sub');
+    final subscriptions = container.read(subscriptionsProvider.notifier);
+    await subscriptions.load();
+    final added = await subscriptions.addSubscription('https://example.com/sub');
 
     expect(added, isTrue);
-    expect(controller.subscriptions, hasLength(1));
+    expect(container.read(subscriptionsProvider).subscriptions, hasLength(1));
   });
 
   test('loads persisted subscriptions and restores proxy catalog', () async {
@@ -284,18 +311,24 @@ void main() {
     await listStore.save([subscription]);
     await profileStore.replaceAtomically(profile);
 
-    final catalog = ProxyCatalog();
-    final controller = SubscriptionsController(
-      store: listStore,
-      profileStore: profileStore,
-      repository: _FakeSubscriptionRepository(),
-    )..bindProxyCatalog(catalog);
-    addTearDown(controller.dispose);
-    addTearDown(catalog.dispose);
+    final container = ProviderContainer(
+      overrides: [
+        coreGatewayProvider.overrideWithValue(const UnavailableCoreGateway()),
+        subscriptionListStoreProvider.overrideWithValue(listStore),
+        profileStoreProvider.overrideWithValue(profileStore),
+        subscriptionRepositoryProvider.overrideWithValue(
+          _FakeSubscriptionRepository(),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
 
-    await controller.load();
+    final subscriptions = container.read(subscriptionsProvider.notifier);
+    await subscriptions.load();
 
-    expect(controller.subscriptions.single.name, 'Persisted');
+    final state = container.read(subscriptionsProvider);
+    expect(state.subscriptions.single.name, 'Persisted');
+    final catalog = container.read(proxyCatalogProvider);
     expect(catalog.groups.first.name, 'All');
     expect(
       catalog.groups.first.nodes.map((node) => node.name),

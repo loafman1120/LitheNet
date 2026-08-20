@@ -3,7 +3,7 @@ class AppSpacing {
 
   static const double pageMargin = 16;
   static const double cardPadding = 16;
-  static const double cardRadius = 20;
+  static const double cardRadius = 8;
   static const double sectionGap = 16;
   static const double itemGap = 12;
   static const double smallGap = 8;

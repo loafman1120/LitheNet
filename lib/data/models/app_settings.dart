@@ -112,14 +112,12 @@ class AppSettings {
       themeMode: ThemeModeOptionParsing.fromName(json['themeMode'] as String?),
       startOnBoot: json['startOnBoot'] as bool? ?? false,
       enableNotifications: json['enableNotifications'] as bool? ?? true,
-      listenAddress:
-          listenAddress == null || listenAddress.trim().isEmpty
-              ? '127.0.0.1'
-              : listenAddress.trim(),
-      mixedPort:
-          mixedPort == null || mixedPort <= 0 || mixedPort >= 65536
-              ? 2080
-              : mixedPort,
+      listenAddress: listenAddress == null || listenAddress.trim().isEmpty
+          ? '127.0.0.1'
+          : listenAddress.trim(),
+      mixedPort: mixedPort == null || mixedPort <= 0 || mixedPort >= 65536
+          ? 2080
+          : mixedPort,
       proxyMode: ProxyModeParsing.fromName(json['proxyMode'] as String?),
       ipv6: json['ipv6'] as bool? ?? false,
       systemProxy: json['systemProxy'] as bool? ?? true,

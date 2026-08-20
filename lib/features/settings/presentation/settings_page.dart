@@ -1,8 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/app_providers.dart';
+import '../../../core/runtime/core_notifier.dart';
 import '../../../data/models/app_settings.dart';
+import '../application/settings_notifier.dart';
 import 'widgets/settings_group.dart';
 import 'widgets/settings_tile.dart';
 
@@ -16,12 +17,25 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
-    final controller = ref.watch(settingsControllerProvider);
-    final core = ref.watch(coreControllerProvider);
-    final settings = controller.settings;
+    final settings = ref.watch(settingsProvider).settings;
+    final notifier = ref.read(settingsProvider.notifier);
+    final core = ref.watch(coreProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Settings'),
+            Text(
+              'Application preferences and runtime options',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
       body: ListView(
         children: [
           SettingsGroup(
@@ -37,7 +51,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 title: 'Start on boot',
                 trailing: Switch(
                   value: settings.startOnBoot,
-                  onChanged: controller.setStartOnBoot,
+                  onChanged: notifier.setStartOnBoot,
                 ),
               ),
               SettingsTile(
@@ -45,7 +59,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 title: 'Notifications',
                 trailing: Switch(
                   value: settings.enableNotifications,
-                  onChanged: controller.setNotifications,
+                  onChanged: notifier.setNotifications,
                 ),
               ),
             ],
@@ -71,7 +85,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 trailing: Switch(
                   value: settings.ipv6,
                   onChanged: (value) {
-                    controller.setIPv6(value);
+                    notifier.setIPv6(value);
                     _syncCore();
                   },
                 ),
@@ -82,7 +96,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 trailing: Switch(
                   value: settings.systemProxy,
                   onChanged: (value) {
-                    controller.setSystemProxy(value);
+                    notifier.setSystemProxy(value);
                     _syncCore();
                   },
                 ),
@@ -111,10 +125,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               SettingsTile(
                 icon: Icons.memory_outlined,
                 title: 'Core backend',
-                subtitle:
-                    core.available
-                        ? core.backendName
-                        : '${core.backendName} bridge pending',
+                subtitle: core.available
+                    ? core.backendName
+                    : '${core.backendName} bridge pending',
               ),
               const SettingsTile(
                 icon: Icons.description_outlined,
@@ -128,104 +141,99 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   void _showThemeDialog() {
-    final controller = ref.read(settingsControllerProvider);
+    final notifier = ref.read(settingsProvider.notifier);
     showDialog<void>(
       context: context,
-      builder:
-          (dialogContext) => SimpleDialog(
-            title: const Text('Theme'),
-            children:
-                ThemeModeOption.values.map((mode) {
-                  return SimpleDialogOption(
-                    onPressed: () {
-                      controller.setThemeMode(mode);
-                      Navigator.pop(dialogContext);
-                    },
-                    child: Row(
-                      children: [
-                        if (controller.settings.themeMode == mode)
-                          const Icon(Icons.check, size: 20)
-                        else
-                          const SizedBox(width: 20),
-                        const SizedBox(width: 12),
-                        Text(mode.label),
-                      ],
-                    ),
-                  );
-                }).toList(),
-          ),
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Theme'),
+        children: ThemeModeOption.values.map((mode) {
+          return SimpleDialogOption(
+            onPressed: () {
+              notifier.setThemeMode(mode);
+              Navigator.pop(dialogContext);
+            },
+            child: Row(
+              children: [
+                if (ref.read(settingsProvider).settings.themeMode == mode)
+                  const Icon(Icons.check, size: 20)
+                else
+                  const SizedBox(width: 20),
+                const SizedBox(width: 12),
+                Text(mode.label),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
   void _showProxyModeDialog() {
-    final controller = ref.read(settingsControllerProvider);
+    final notifier = ref.read(settingsProvider.notifier);
     showDialog<void>(
       context: context,
-      builder:
-          (dialogContext) => SimpleDialog(
-            title: const Text('Proxy mode'),
-            children:
-                ProxyMode.values.map((mode) {
-                  return SimpleDialogOption(
-                    onPressed: () {
-                      controller.setProxyMode(mode);
-                      _syncCore();
-                      Navigator.pop(dialogContext);
-                    },
-                    child: Row(
-                      children: [
-                        if (controller.settings.proxyMode == mode)
-                          const Icon(Icons.check, size: 20)
-                        else
-                          const SizedBox(width: 20),
-                        const SizedBox(width: 12),
-                        Expanded(child: Text(mode.label)),
-                      ],
-                    ),
-                  );
-                }).toList(),
-          ),
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Proxy mode'),
+        children: ProxyMode.values.map((mode) {
+          return SimpleDialogOption(
+            onPressed: () {
+              notifier.setProxyMode(mode);
+              _syncCore();
+              Navigator.pop(dialogContext);
+            },
+            child: Row(
+              children: [
+                if (ref.read(settingsProvider).settings.proxyMode == mode)
+                  const Icon(Icons.check, size: 20)
+                else
+                  const SizedBox(width: 20),
+                const SizedBox(width: 12),
+                Expanded(child: Text(mode.label)),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
   void _showPortDialog() {
-    final settingsController = ref.read(settingsControllerProvider);
+    final notifier = ref.read(settingsProvider.notifier);
     final textController = TextEditingController(
-      text: settingsController.settings.mixedPort.toString(),
+      text: ref.read(settingsProvider).settings.mixedPort.toString(),
     );
     showDialog<void>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('Mixed port'),
-            content: TextField(
-              controller: textController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Port'),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final port = int.tryParse(textController.text);
-                  if (port != null && port > 0 && port < 65536) {
-                    settingsController.setMixedPort(port);
-                    _syncCore();
-                  }
-                  Navigator.pop(dialogContext);
-                },
-                child: const Text('Save'),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Mixed port'),
+        content: TextField(
+          controller: textController,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Port'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
           ),
+          FilledButton(
+            onPressed: () {
+              final port = int.tryParse(textController.text);
+              if (port != null && port > 0 && port < 65536) {
+                notifier.setMixedPort(port);
+                _syncCore();
+              }
+              Navigator.pop(dialogContext);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 
   void _syncCore() {
-    final settings = ref.read(settingsControllerProvider).settings;
-    ref.read(coreControllerProvider).configure(settings);
+    final settings = ref.read(settingsProvider).settings;
+    ref.read(coreProvider.notifier).configure(settings);
   }
 }

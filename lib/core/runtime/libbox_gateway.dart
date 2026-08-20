@@ -12,6 +12,7 @@ import '../../data/models/app_settings.dart';
 import '../../data/models/log_entry.dart';
 import '../../data/models/proxy_group.dart';
 import '../../data/models/proxy_node.dart';
+import '../logging/ansi_escape.dart';
 import '../logging/app_logger.dart';
 import 'core_gateway.dart';
 import 'core_models.dart';
@@ -422,7 +423,7 @@ class LibboxGateway implements CoreGateway {
         time: now,
         level: _logLevel(message.level),
         source: 'gRPC',
-        message: message.message,
+        message: stripAnsiEscapeSequences(message.message),
       );
       _logs.add(entry);
       AppLogger.log(entry.level, entry.message, source: entry.source);
@@ -645,7 +646,7 @@ class LibboxGateway implements CoreGateway {
       if (File(candidate).existsSync()) return LibboxFfi.open(candidate);
     }
     throw CoreUnavailableException(
-      '$name was not found. Put it beside Lithe, under bin/, or set '
+      '$name was not found. Put it beside Target, under bin/, or set '
       'LIBBOX_LIBRARY.',
     );
   }

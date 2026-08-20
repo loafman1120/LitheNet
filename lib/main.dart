@@ -7,9 +7,7 @@ import 'app/lithenet_app.dart';
 import 'core/logging/app_logger.dart';
 import 'data/storage/app_storage_paths.dart';
 import 'data/storage/json_file_store.dart';
-import 'features/settings/application/settings_controller.dart';
 import 'features/settings/data/settings_store.dart';
-import 'features/subscriptions/application/subscriptions_controller.dart';
 import 'features/subscriptions/data/profile_store.dart';
 import 'features/subscriptions/data/subscription_list_store.dart';
 
@@ -38,28 +36,21 @@ Future<void> main() async {
         return true;
       };
 
-      AppLogger.info('LitheNet initialization started');
+      AppLogger.info('Target initialization started');
       final paths = await AppStoragePaths.resolve();
       final settingsStore = SettingsStore(JsonFileStore(paths.settingsFile));
       final settings = await settingsStore.load();
-      final settingsController = SettingsController(
-        initialSettings: settings,
-        store: settingsStore,
-      );
       final profileStore = FileProfileStore(paths.profilesDirectory);
-      final subscriptionsController = SubscriptionsController(
-        store: FileSubscriptionListStore(
-          JsonFileStore(paths.subscriptionsFile),
-        ),
-        profileStore: profileStore,
-      );
-      await subscriptionsController.load();
 
-      AppLogger.info('LitheNet initialization completed');
+      AppLogger.info('Target initialization completed');
       runApp(
         LitheNetApp(
-          settingsController: settingsController,
-          subscriptionsController: subscriptionsController,
+          initialSettings: settings,
+          settingsStore: settingsStore,
+          subscriptionListStore: FileSubscriptionListStore(
+            JsonFileStore(paths.subscriptionsFile),
+          ),
+          profileStore: profileStore,
         ),
       );
     },

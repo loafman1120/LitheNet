@@ -4,8 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../features/connections/presentation/connections_page.dart';
 import '../features/home/home_page.dart';
 import '../features/logs/presentation/logs_page.dart';
-import '../features/proxies/presentation/proxies_page.dart';
+import '../features/profiles/presentation/profiles_workspace_page.dart';
 import '../features/settings/presentation/settings_page.dart';
+import '../features/traffic/presentation/traffic_page.dart';
 import '../features/subscriptions/presentation/subscriptions_page.dart';
 import 'shell/app_shell.dart';
 
@@ -25,7 +26,7 @@ class AppRouter {
           ),
           GoRoute(
             path: AppRoute.proxies.path,
-            pageBuilder: _fadePageBuilder(const ProxiesPage()),
+            pageBuilder: _fadePageBuilder(const ProfilesWorkspacePage()),
           ),
           GoRoute(
             path: AppRoute.subscriptions.path,
@@ -34,6 +35,10 @@ class AppRouter {
           GoRoute(
             path: AppRoute.connections.path,
             pageBuilder: _fadePageBuilder(const ConnectionsPage()),
+          ),
+          GoRoute(
+            path: AppRoute.traffic.path,
+            pageBuilder: _fadePageBuilder(const TrafficPage()),
           ),
           GoRoute(
             path: AppRoute.logs.path,
@@ -61,6 +66,7 @@ enum AppRoute {
   proxies('/proxies'),
   subscriptions('/subscriptions'),
   connections('/connections'),
+  traffic('/traffic'),
   logs('/logs'),
   settings('/settings');
 

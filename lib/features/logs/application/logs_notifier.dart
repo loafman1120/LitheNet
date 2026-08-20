@@ -1,40 +1,36 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/logging/app_logger.dart';
-import '../../../core/runtime/core_controller.dart';
+import '../../../core/runtime/core_notifier.dart';
 import '../../../data/models/log_entry.dart';
 
-class LogsController extends ChangeNotifier {
-  LogsController() {
-    _entries.addAll(AppLogger.entries);
-    _appLogSubscription = AppLogger.entriesStream.listen(addEntry);
-  }
+/// Immutable snapshot of the logs workspace.
+@immutable
+class LogsState {
+  const LogsState({
+    this.entries = const [],
+    this.levelFilter,
+    this.searchQuery = '',
+    this.paused = false,
+  });
 
-  final List<LogEntry> _entries = [];
-  LogLevel? _levelFilter;
-  String _searchQuery = '';
-  bool _paused = false;
-  Timer? _demoTimer;
-  int _demoCounter = 0;
-  CoreController? _core;
-  late final StreamSubscription<LogEntry> _appLogSubscription;
-
-  List<LogEntry> get entries => List.unmodifiable(_entries);
-  LogLevel? get levelFilter => _levelFilter;
-  String get searchQuery => _searchQuery;
-  bool get paused => _paused;
+  final List<LogEntry> entries;
+  final LogLevel? levelFilter;
+  final String searchQuery;
+  final bool paused;
 
   List<LogEntry> get filteredEntries {
-    var list = _entries;
+    var list = entries;
 
-    if (_levelFilter != null) {
-      list = list.where((e) => e.level == _levelFilter).toList();
+    if (levelFilter != null) {
+      list = list.where((e) => e.level == levelFilter).toList();
     }
 
-    if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
+    if (searchQuery.isNotEmpty) {
+      final q = searchQuery.toLowerCase();
       list = list
           .where(
             (e) =>
@@ -47,55 +43,71 @@ class LogsController extends ChangeNotifier {
     return list;
   }
 
+  LogsState copyWith({
+    List<LogEntry>? entries,
+    LogLevel? levelFilter,
+    String? searchQuery,
+    bool? paused,
+    bool clearLevelFilter = false,
+  }) {
+    return LogsState(
+      entries: entries ?? this.entries,
+      levelFilter: clearLevelFilter ? null : levelFilter ?? this.levelFilter,
+      searchQuery: searchQuery ?? this.searchQuery,
+      paused: paused ?? this.paused,
+    );
+  }
+}
+
+class LogsNotifier extends Notifier<LogsState> {
+  static const _maxEntries = 2000;
+
+  StreamSubscription<LogEntry>? _appLogSubscription;
+  Timer? _demoTimer;
+  int _demoCounter = 0;
+
+  @override
+  LogsState build() {
+    _appLogSubscription = AppLogger.entriesStream.listen(addEntry);
+    ref.onDispose(() {
+      unawaited(_appLogSubscription?.cancel());
+      _demoTimer?.cancel();
+    });
+    return LogsState(entries: List.of(AppLogger.entries));
+  }
+
   void setLevelFilter(LogLevel? level) {
-    _levelFilter = level;
-    notifyListeners();
+    state = state.copyWith(levelFilter: level);
   }
 
   void setSearchQuery(String query) {
-    _searchQuery = query;
-    notifyListeners();
+    state = state.copyWith(searchQuery: query);
   }
 
   void togglePause() {
-    _paused = !_paused;
-    if (!_paused) {
-      _entries
-        ..clear()
-        ..addAll(AppLogger.entries);
-    }
-    notifyListeners();
+    final paused = !state.paused;
+    final entries = paused ? state.entries : List.of(AppLogger.entries);
+    state = state.copyWith(paused: paused, entries: entries);
   }
 
   void clear() {
     AppLogger.clear();
-    _entries.clear();
-    notifyListeners();
-    final core = _core;
-    if (core != null) {
-      core.clearLogs();
-    }
+    state = state.copyWith(entries: const []);
+    ref.read(coreProvider.notifier).clearLogs();
   }
 
   void addEntry(LogEntry entry) {
-    if (_paused) return;
-    _entries.add(entry);
-    if (_entries.length > 2000) {
-      _entries.removeRange(0, _entries.length - 2000);
+    if (state.paused) return;
+    final entries = [...state.entries, entry];
+    if (entries.length > _maxEntries) {
+      entries.removeRange(0, entries.length - _maxEntries);
     }
-    notifyListeners();
-  }
-
-  void bind(CoreController core) {
-    if (_core == core) {
-      return;
-    }
-    _core = core;
+    state = state.copyWith(entries: entries);
   }
 
   String exportLogs({bool sanitize = false}) {
     final buffer = StringBuffer();
-    for (final entry in filteredEntries) {
+    for (final entry in state.filteredEntries) {
       var msg = entry.message;
       if (sanitize) {
         msg = _sanitize(msg);
@@ -152,11 +164,8 @@ class LogsController extends ChangeNotifier {
     _demoTimer?.cancel();
     _demoTimer = null;
   }
-
-  @override
-  void dispose() {
-    unawaited(_appLogSubscription.cancel());
-    stopDemoLogs();
-    super.dispose();
-  }
 }
+
+final logsProvider = NotifierProvider<LogsNotifier, LogsState>(
+  LogsNotifier.new,
+);

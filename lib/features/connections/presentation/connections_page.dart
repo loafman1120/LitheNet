@@ -1,9 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/app_providers.dart';
 import '../../../core/widgets/empty_state.dart';
-import '../application/connections_controller.dart';
+import '../../../core/widgets/target_page_layout.dart';
+import '../application/connections_notifier.dart';
 import 'widgets/connection_tile.dart';
 
 class ConnectionsPage extends ConsumerWidget {
@@ -11,35 +11,49 @@ class ConnectionsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.watch(connectionsControllerProvider);
-    final connections = controller.filteredConnections;
+    final state = ref.watch(connectionsProvider);
+    final notifier = ref.read(connectionsProvider.notifier);
+    final connections = state.filteredConnections;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Connections (${controller.activeCount})'),
-        actions: [
-          IconButton(
-            onPressed: controller.activeCount == 0 || controller.closingAll
-                ? null
-                : () => _closeAll(context, controller),
-            icon: controller.closingAll
-                ? const SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.cancel_presentation_outlined),
-            tooltip: 'Close all connections',
-          ),
-        ],
-      ),
-      body: Column(
+    return SafeArea(
+      child: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: TargetPageLayout.maxWidth,
+              ),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: TargetPageHeader(
+                      title: 'Connections',
+                      subtitle: 'Inspect active network connections.',
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: state.activeCount == 0 || state.closingAll
+                        ? null
+                        : () => _closeAll(context, ref, notifier),
+                    icon: state.closingAll
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.cancel_presentation_outlined),
+                    tooltip: 'Close all connections',
+                  ),
+                ],
+              ),
+            ),
+          ),
           _ConnectionsToolbar(
-            searchQuery: controller.searchQuery,
-            sortBy: controller.sortBy,
-            sortAsc: controller.sortAsc,
-            onSearchChanged: controller.setSearchQuery,
-            onSortChanged: controller.setSortBy,
+            searchQuery: state.searchQuery,
+            sortBy: state.sortBy,
+            sortAsc: state.sortAsc,
+            onSearchChanged: notifier.setSearchQuery,
+            onSortChanged: notifier.setSortBy,
           ),
           Expanded(
             child: connections.isEmpty
@@ -55,9 +69,9 @@ class ConnectionsPage extends ConsumerWidget {
                       final connection = connections[index];
                       return ConnectionTile(
                         connection: connection,
-                        closing: controller.isClosing(connection.id),
+                        closing: state.isClosing(connection.id),
                         onClose: () =>
-                            _closeOne(context, controller, connection.id),
+                            _closeOne(context, ref, notifier, connection.id),
                       );
                     },
                   ),
@@ -69,21 +83,25 @@ class ConnectionsPage extends ConsumerWidget {
 
   Future<void> _closeOne(
     BuildContext context,
-    ConnectionsController controller,
+    WidgetRef ref,
+    ConnectionsNotifier notifier,
     String id,
   ) async {
-    final closed = await controller.close(id);
+    final closed = await notifier.close(id);
     if (!context.mounted || closed) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(controller.lastError ?? 'Unable to close connection.'),
+        content: Text(
+          ref.read(connectionsProvider).lastError ?? 'Unable to close connection.',
+        ),
       ),
     );
   }
 
   Future<void> _closeAll(
     BuildContext context,
-    ConnectionsController controller,
+    WidgetRef ref,
+    ConnectionsNotifier notifier,
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -103,13 +121,14 @@ class ConnectionsPage extends ConsumerWidget {
       ),
     );
     if (confirmed != true) return;
-    final count = await controller.closeAll();
+    final count = await notifier.closeAll();
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           count == null
-              ? controller.lastError ?? 'Unable to close connections.'
+              ? ref.read(connectionsProvider).lastError ??
+                    'Unable to close connections.'
               : 'Closed $count active connection${count == 1 ? '' : 's'}.',
         ),
       ),

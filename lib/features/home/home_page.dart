@@ -2,15 +2,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/app_identity.dart';
-import '../../app/app_providers.dart';
 import '../../app/router.dart';
-import '../../core/runtime/core_controller.dart';
+import '../../core/runtime/core_notifier.dart';
 import '../../core/runtime/core_models.dart';
-import '../../core/theme/app_spacing.dart';
 import '../../data/models/ip_info.dart';
+import '../../core/widgets/target_page_layout.dart';
+import '../proxies/application/proxies_notifier.dart';
 import 'data/ip_info_service.dart';
-import 'presentation/widgets/connection_button.dart';
 import 'presentation/widgets/connection_error_banner.dart';
 import 'presentation/widgets/current_profile_card.dart';
 import 'presentation/widgets/ip_info_card.dart';
@@ -52,67 +50,146 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final core = ref.watch(coreControllerProvider);
-
+    final core = ref.watch(coreProvider);
+    final theme = Theme.of(context);
     return SafeArea(
-      child: CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            sliver: SliverToBoxAdapter(
-              child: Text(
-                AppIdentity.displayName,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 900;
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 960),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const TargetPageHeader(
+                      title: 'Dashboard',
+                      subtitle:
+                          'Monitor your local network service and runtime health.',
+                    ),
+                    const SizedBox(height: 20),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  core.running
+                                      ? Icons.check_circle
+                                      : Icons.circle,
+                                  size: 18,
+                                  color: core.running
+                                      ? Colors.green
+                                      : theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 7),
+                                Text(
+                                  core.status,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: core.running
+                                        ? Colors.green
+                                        : theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              core.running
+                                  ? 'Service is running'
+                                  : 'Service is stopped',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              core.available
+                                  ? (core.running
+                                        ? 'Traffic is being routed through the active profile.'
+                                        : 'Start the service to begin routing traffic.')
+                                  : 'The local core is unavailable on this platform.',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: 14),
+                            FilledButton(
+                              onPressed: core.busy || !core.available
+                                  ? null
+                                  : () => core.running
+                                        ? ref
+                                              .read(coreProvider.notifier)
+                                              .stop()
+                                        : _connect(),
+                              child: Text(
+                                core.busy
+                                    ? 'Working…'
+                                    : core.running
+                                    ? 'Stop'
+                                    : 'Start',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (core.message.isNotEmpty &&
+                        (!core.available ||
+                            core.lifecycle == CoreLifecycle.failed)) ...[
+                      const SizedBox(height: 16),
+                      ConnectionErrorBanner(message: core.message),
+                    ],
+                    const SizedBox(height: 20),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 16,
+                      children: [
+                        SizedBox(
+                          width: wide ? 472 : double.infinity,
+                          child: CurrentProfileCard(core: core),
+                        ),
+                        SizedBox(
+                          width: wide ? 472 : double.infinity,
+                          child: IpInfoCard(
+                            ipInfo: _ipInfo,
+                            loading: _ipLoading,
+                            error: _ipError,
+                            onRefresh: _fetchIpInfo,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    TrafficStatsCard(snapshot: core.traffic),
+                    const SizedBox(height: 18),
+                    QuickActionsGrid(
+                      enabled: core.running && !core.busy,
+                      onTestLatency: _testProxies,
+                      onRefreshRuleSets: _refreshRuleSets,
+                      onCloseConnections: _closeConnections,
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.all(16),
-            sliver: SliverList.list(
-              children: [
-                CurrentProfileCard(core: core),
-                if (core.message.isNotEmpty &&
-                    (!core.available ||
-                        core.lifecycle == CoreLifecycle.failed)) ...[
-                  const SizedBox(height: AppSpacing.sectionGap),
-                  ConnectionErrorBanner(message: core.message),
-                ],
-                const SizedBox(height: AppSpacing.sectionGap),
-                IpInfoCard(
-                  ipInfo: _ipInfo,
-                  loading: _ipLoading,
-                  error: _ipError,
-                  onRefresh: _fetchIpInfo,
-                ),
-                const SizedBox(height: AppSpacing.sectionGap),
-                Center(
-                  child: ConnectionButton(
-                    core: core,
-                    onConnect: () => _connect(core),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sectionGap),
-                TrafficStatsCard(snapshot: core.traffic),
-                const SizedBox(height: AppSpacing.sectionGap),
-                QuickActionsGrid(
-                  enabled: core.running && !core.busy,
-                  onTestLatency: () => _testProxies(core),
-                  onRefreshRuleSets: () => _refreshRuleSets(core),
-                  onCloseConnections: () => _closeConnections(core),
-                ),
-              ],
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  Future<void> _connect(CoreController core) async {
-    await core.start();
-    if (!mounted || core.lifecycle != CoreLifecycle.failed) return;
+  Future<void> _connect() async {
+    final notifier = ref.read(coreProvider.notifier);
+    await notifier.start();
+    if (!mounted) return;
+
+    final core = ref.read(coreProvider);
+    if (core.lifecycle != CoreLifecycle.failed) return;
 
     final messenger = ScaffoldMessenger.of(context);
     messenger
@@ -132,22 +209,21 @@ class _HomePageState extends ConsumerState<HomePage> {
       );
   }
 
-  Future<void> _testProxies(CoreController core) async {
-    final controller = ref.read(proxiesControllerProvider);
-    await controller.testAllLatency();
+  Future<void> _testProxies() async {
+    final notifier = ref.read(proxiesProvider.notifier);
+    await notifier.testAllLatency();
     if (!mounted) return;
-    _showMessage(
-      controller.lastError ?? 'Proxy URLTest completed.',
-      error: controller.lastError != null,
-    );
+    final error = ref.read(proxiesProvider).lastError;
+    _showMessage(error ?? 'Proxy URLTest completed.', error: error != null);
   }
 
-  Future<void> _refreshRuleSets(CoreController core) async {
-    final count = await core.refreshRuleSets();
+  Future<void> _refreshRuleSets() async {
+    final count = await ref.read(coreProvider.notifier).refreshRuleSets();
     if (!mounted) return;
+    final message = ref.read(coreProvider).message;
     _showMessage(
       count == null
-          ? core.message
+          ? message
           : count == 0
           ? 'No remote rule sets are configured.'
           : 'Requested refresh for $count rule set${count == 1 ? '' : 's'}.',
@@ -155,8 +231,8 @@ class _HomePageState extends ConsumerState<HomePage> {
     );
   }
 
-  Future<void> _closeConnections(CoreController core) async {
-    final active = core.traffic.activeConnections;
+  Future<void> _closeConnections() async {
+    final active = ref.read(coreProvider).traffic.activeConnections;
     if (active == 0) {
       _showMessage('There are no active connections.');
       return;
@@ -181,11 +257,12 @@ class _HomePageState extends ConsumerState<HomePage> {
       ),
     );
     if (confirmed != true) return;
-    final count = await core.closeAllConnections();
+    final count = await ref.read(coreProvider.notifier).closeAllConnections();
     if (!mounted) return;
+    final message = ref.read(coreProvider).message;
     _showMessage(
       count == null
-          ? core.message
+          ? message
           : 'Closed $count active connection${count == 1 ? '' : 's'}.',
       error: count == null,
     );

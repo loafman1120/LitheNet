@@ -102,30 +102,30 @@ class AppStoragePaths {
     if (Platform.isWindows) {
       final roaming = Platform.environment['APPDATA'];
       if (roaming != null && roaming.trim().isNotEmpty) {
-        return '$roaming$separator${AppIdentity.displayName}';
+        return '$roaming$separator${AppIdentity.storageDirectoryName}';
       }
     }
     if (Platform.isMacOS) {
       final home = _homeDirectoryPath();
       if (home != null) {
         return '$home${separator}Library${separator}Application Support'
-            '$separator${AppIdentity.displayName}';
+            '$separator${AppIdentity.storageDirectoryName}';
       }
     }
     if (Platform.isLinux) {
       final dataHome = Platform.environment['XDG_DATA_HOME'];
       if (dataHome != null && dataHome.trim().isNotEmpty) {
-        return '$dataHome$separator${AppIdentity.displayName}';
+        return '$dataHome$separator${AppIdentity.storageDirectoryName}';
       }
       final home = _homeDirectoryPath();
       if (home != null) {
         return '$home$separator.local${separator}share'
-            '$separator${AppIdentity.displayName}';
+            '$separator${AppIdentity.storageDirectoryName}';
       }
     }
 
     final base = _applicationSupportDirectoryFallback();
-    return '${base.path}$separator${AppIdentity.displayName}';
+    return '${base.path}$separator${AppIdentity.storageDirectoryName}';
   }
 
   static Directory _applicationSupportDirectoryFallback() {

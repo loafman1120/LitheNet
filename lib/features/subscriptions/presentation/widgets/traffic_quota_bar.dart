@@ -38,8 +38,9 @@ class TrafficQuotaBar extends StatelessWidget {
           child: LinearProgressIndicator(
             value: percent,
             minHeight: 6,
-            backgroundColor:
-                Theme.of(context).colorScheme.surfaceContainerHighest,
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest,
           ),
         ),
         const SizedBox(height: 4),

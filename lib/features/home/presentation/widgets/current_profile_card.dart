@@ -1,13 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/runtime/core_controller.dart';
+import '../../../../core/runtime/core_notifier.dart';
 import 'home_info_row.dart';
 
 class CurrentProfileCard extends StatelessWidget {
   const CurrentProfileCard({required this.core, super.key});
 
-  final CoreController core;
+  final CoreState core;
 
   @override
   Widget build(BuildContext context) {
@@ -47,15 +47,13 @@ class CurrentProfileCard extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.smallGap),
             HomeInfoRow(
-              icon:
-                  isTun
-                      ? Icons.admin_panel_settings_outlined
-                      : Icons.place_outlined,
+              icon: isTun
+                  ? Icons.admin_panel_settings_outlined
+                  : Icons.place_outlined,
               label: isTun ? 'Privilege' : 'Listen',
-              value:
-                  isTun
-                      ? 'Elevate on demand'
-                      : '${core.settings.listenAddress}:${core.settings.mixedPort}',
+              value: isTun
+                  ? 'Elevate on demand'
+                  : '${core.settings.listenAddress}:${core.settings.mixedPort}',
             ),
           ],
         ),
@@ -67,7 +65,7 @@ class CurrentProfileCard extends StatelessWidget {
 class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.core});
 
-  final CoreController core;
+  final CoreState core;
 
   @override
   Widget build(BuildContext context) {
@@ -77,10 +75,9 @@ class _StatusPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color:
-            running
-                ? Colors.green.withValues(alpha: 0.12)
-                : Colors.grey.withValues(alpha: 0.12),
+        color: running
+            ? Colors.green.withValues(alpha: 0.12)
+            : Colors.grey.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(

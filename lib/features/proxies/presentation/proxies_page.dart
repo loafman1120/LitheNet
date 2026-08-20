@@ -1,10 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../app/app_providers.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/widgets/empty_state.dart';
-import '../application/proxies_controller.dart';
+import '../application/proxies_notifier.dart';
 import 'widgets/mode_selector.dart';
 import 'widgets/proxy_group_tabs.dart';
 import 'widgets/proxy_node_detail_sheet.dart';
@@ -20,8 +19,9 @@ class ProxiesPage extends ConsumerStatefulWidget {
 class _ProxiesPageState extends ConsumerState<ProxiesPage> {
   @override
   Widget build(BuildContext context) {
-    final controller = ref.watch(proxiesControllerProvider);
-    final nodes = controller.filteredNodes;
+    final state = ref.watch(proxiesProvider);
+    final notifier = ref.read(proxiesProvider.notifier);
+    final nodes = state.filteredNodes;
 
     return Scaffold(
       appBar: AppBar(
@@ -29,9 +29,9 @@ class _ProxiesPageState extends ConsumerState<ProxiesPage> {
         actions: [
           IconButton(onPressed: _showSearch, icon: const Icon(Icons.search)),
           IconButton(
-            onPressed: controller.toggleSortOrder,
+            onPressed: notifier.toggleSortOrder,
             icon: Icon(
-              controller.sortAsc ? Icons.arrow_upward : Icons.arrow_downward,
+              state.sortAsc ? Icons.arrow_upward : Icons.arrow_downward,
             ),
           ),
         ],
@@ -41,14 +41,14 @@ class _ProxiesPageState extends ConsumerState<ProxiesPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: ModeSelector(
-              mode: controller.mode,
-              onChanged: controller.setMode,
+              mode: state.mode,
+              onChanged: notifier.setMode,
             ),
           ),
           ProxyGroupTabs(
-            groups: controller.groups,
-            selectedIndex: controller.selectedGroupIndex,
-            onSelected: controller.selectGroup,
+            groups: state.groups,
+            selectedIndex: state.selectedGroupIndex,
+            onSelected: notifier.selectGroup,
           ),
           const SizedBox(height: AppSpacing.smallGap),
           Expanded(
@@ -64,7 +64,7 @@ class _ProxiesPageState extends ConsumerState<ProxiesPage> {
                       final node = nodes[index];
                       return ProxyNodeTile(
                         node: node,
-                        onTap: () => controller.selectNode(node.id),
+                        onTap: () => notifier.selectNode(node.id),
                         onLongPress: () => _showDetail(node),
                       );
                     },
@@ -73,8 +73,8 @@ class _ProxiesPageState extends ConsumerState<ProxiesPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: controller.testing ? null : () => _testLatency(controller),
-        child: controller.testing
+        onPressed: state.testing ? null : () => _testLatency(notifier),
+        child: state.testing
             ? const SizedBox(
                 width: 24,
                 height: 24,
@@ -85,19 +85,21 @@ class _ProxiesPageState extends ConsumerState<ProxiesPage> {
     );
   }
 
-  Future<void> _testLatency(ProxiesController controller) async {
-    await controller.testAllLatency();
-    if (!mounted || controller.lastError == null) return;
+  Future<void> _testLatency(ProxiesNotifier notifier) async {
+    await notifier.testAllLatency();
+    if (!mounted) return;
+    final error = ref.read(proxiesProvider).lastError;
+    if (error == null) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(controller.lastError!),
+        content: Text(error),
         backgroundColor: Theme.of(context).colorScheme.error,
       ),
     );
   }
 
   void _showSearch() {
-    final controller = ref.read(proxiesControllerProvider);
+    final notifier = ref.read(proxiesProvider.notifier);
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -107,12 +109,12 @@ class _ProxiesPageState extends ConsumerState<ProxiesPage> {
           decoration: const InputDecoration(
             hintText: 'Name, type, or region...',
           ),
-          onChanged: controller.setSearchQuery,
+          onChanged: notifier.setSearchQuery,
         ),
         actions: [
           TextButton(
             onPressed: () {
-              controller.setSearchQuery('');
+              notifier.setSearchQuery('');
               Navigator.pop(context);
             },
             child: const Text('Clear'),

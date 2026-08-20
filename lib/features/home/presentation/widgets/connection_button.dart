@@ -1,8 +1,9 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/runtime/core_controller.dart';
+import '../../../../core/runtime/core_notifier.dart';
 
-class ConnectionButton extends StatelessWidget {
+class ConnectionButton extends ConsumerWidget {
   const ConnectionButton({
     required this.core,
     this.onConnect,
@@ -10,15 +11,16 @@ class ConnectionButton extends StatelessWidget {
     super.key,
   });
 
-  final CoreController core;
+  final CoreState core;
   final Future<void> Function()? onConnect;
   final Future<void> Function()? onDisconnect;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final running = core.running;
     final busy = core.busy;
+    final notifier = ref.read(coreProvider.notifier);
 
     return SizedBox(
       width: 200,
@@ -27,8 +29,8 @@ class ConnectionButton extends StatelessWidget {
         onPressed: busy || !core.available
             ? null
             : running
-            ? onDisconnect ?? core.stop
-            : onConnect ?? core.start,
+            ? onDisconnect ?? notifier.stop
+            : onConnect ?? notifier.start,
         style: FilledButton.styleFrom(
           shape: const CircleBorder(),
           backgroundColor: running

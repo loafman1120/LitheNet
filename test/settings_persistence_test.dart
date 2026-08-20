@@ -1,10 +1,11 @@
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lithenet/data/models/app_settings.dart';
 import 'package:lithenet/data/storage/app_storage_paths.dart';
 import 'package:lithenet/data/storage/json_file_store.dart';
-import 'package:lithenet/features/settings/application/settings_controller.dart';
+import 'package:lithenet/features/settings/application/settings_notifier.dart';
 import 'package:lithenet/features/settings/data/settings_store.dart';
 
 void main() {
@@ -82,12 +83,15 @@ void main() {
     expect(restored.proxyMode, ProxyMode.tun);
   });
 
-  test('SettingsController persists mutations', () async {
+  test('SettingsNotifier persists mutations', () async {
     final store = MemorySettingsStore();
-    final controller = SettingsController(store: store);
-    addTearDown(controller.dispose);
+    final container = ProviderContainer(
+      overrides: [settingsStoreProvider.overrideWithValue(store)],
+    );
+    addTearDown(container.dispose);
 
-    controller
+    final notifier = container.read(settingsProvider.notifier);
+    notifier
       ..setThemeMode(ThemeModeOption.dark)
       ..setMixedPort(8088);
 
@@ -96,6 +100,6 @@ void main() {
     final restored = await store.load();
     expect(restored.themeMode, ThemeModeOption.dark);
     expect(restored.mixedPort, 8088);
-    expect(controller.lastError, isNull);
+    expect(container.read(settingsProvider).lastError, isNull);
   });
 }

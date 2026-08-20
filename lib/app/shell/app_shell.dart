@@ -17,14 +17,22 @@ class AppShell extends StatelessWidget {
     return AdaptiveScaffold(
       selectedIndex: selectedIndex,
       onDestinationSelected: (index) {
-        context.go(AppRoute.values[index].path);
+        context.go(_navigationRoutes[index].path);
       },
       child: child,
     );
   }
 
+  static const _navigationRoutes = [
+    AppRoute.home,
+    AppRoute.proxies,
+    AppRoute.connections,
+    AppRoute.traffic,
+    AppRoute.logs,
+  ];
+
   int _selectedIndexFor(String location) {
-    final index = AppRoute.values.indexWhere((route) {
+    final index = _navigationRoutes.indexWhere((route) {
       if (route.path == AppRoute.home.path) {
         return location == route.path;
       }
@@ -48,19 +56,14 @@ class AdaptiveScaffold extends StatelessWidget {
 
   static const _destinations = [
     NavigationDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: Icon(Icons.home),
-      label: 'Home',
+      icon: Icon(Icons.dashboard_outlined),
+      selectedIcon: Icon(Icons.dashboard),
+      label: 'Dashboard',
     ),
     NavigationDestination(
       icon: Icon(Icons.hub_outlined),
       selectedIcon: Icon(Icons.hub),
-      label: 'Proxies',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.rss_feed_outlined),
-      selectedIcon: Icon(Icons.rss_feed),
-      label: 'Subs',
+      label: 'Profiles',
     ),
     NavigationDestination(
       icon: Icon(Icons.cable_outlined),
@@ -68,14 +71,14 @@ class AdaptiveScaffold extends StatelessWidget {
       label: 'Connections',
     ),
     NavigationDestination(
+      icon: Icon(Icons.show_chart),
+      selectedIcon: Icon(Icons.show_chart),
+      label: 'Traffic',
+    ),
+    NavigationDestination(
       icon: Icon(Icons.receipt_long_outlined),
       selectedIcon: Icon(Icons.receipt_long),
       label: 'Logs',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings),
-      label: 'Settings',
     ),
   ];
 
@@ -89,22 +92,9 @@ class AdaptiveScaffold extends StatelessWidget {
           return Scaffold(
             body: Row(
               children: [
-                NavigationRail(
+                _DesktopSidebar(
                   selectedIndex: selectedIndex,
-                  onDestinationSelected: onDestinationSelected,
-                  labelType: NavigationRailLabelType.all,
-                  leading: const Padding(
-                    padding: EdgeInsets.only(top: 12, bottom: 16),
-                    child: _BrandMark(),
-                  ),
-                  destinations: [
-                    for (final destination in _destinations)
-                      NavigationRailDestination(
-                        icon: destination.icon,
-                        selectedIcon: destination.selectedIcon,
-                        label: Text(destination.label),
-                      ),
-                  ],
+                  onSelect: onDestinationSelected,
                 ),
                 const VerticalDivider(width: 1),
                 Expanded(child: child),
@@ -122,6 +112,58 @@ class AdaptiveScaffold extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _DesktopSidebar extends StatelessWidget {
+  const _DesktopSidebar({required this.selectedIndex, required this.onSelect});
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    Widget item(int index, String label, IconData icon) => ListTile(
+      dense: true,
+      selected: selectedIndex == index,
+      leading: Icon(icon, size: 20),
+      title: Text(label),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      onTap: () => onSelect(index),
+    );
+    return Material(
+      color: theme.colorScheme.surface,
+      child: SizedBox(
+        width: 180,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(left: 8, bottom: 20),
+                child: _BrandMark(),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 12, bottom: 6),
+                child: Text(
+                  'WORKSPACE',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+              item(0, 'Dashboard', Icons.dashboard_outlined),
+              item(1, 'Profiles', Icons.hub_outlined),
+              item(2, 'Connections', Icons.cable_outlined),
+              item(3, 'Traffic', Icons.show_chart),
+              item(4, 'Logs', Icons.receipt_long_outlined),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -144,7 +186,7 @@ class _BrandMark extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
-          'L',
+          'T',
           style: TextStyle(
             color: colorScheme.onPrimary,
             fontWeight: FontWeight.w800,

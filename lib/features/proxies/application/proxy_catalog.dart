@@ -1,18 +1,29 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/proxy_group.dart';
 import '../../../data/models/proxy_node.dart';
 import '../../subscriptions/data/subscription_parser.dart';
 
-class ProxyCatalog extends ChangeNotifier {
-  List<ProxyGroup> _groups = [];
+/// Immutable snapshot of the parsed proxy catalog.
+@immutable
+class ProxyCatalogState {
+  const ProxyCatalogState({this.groups = const []});
 
-  List<ProxyGroup> get groups => List.unmodifiable(_groups);
+  final List<ProxyGroup> groups;
+
+  ProxyCatalogState copyWith({List<ProxyGroup>? groups}) {
+    return ProxyCatalogState(groups: groups ?? this.groups);
+  }
+}
+
+class ProxyCatalogNotifier extends Notifier<ProxyCatalogState> {
+  @override
+  ProxyCatalogState build() => const ProxyCatalogState();
 
   void clear() {
-    if (_groups.isEmpty) return;
-    _groups = [];
-    notifyListeners();
+    if (state.groups.isEmpty) return;
+    state = const ProxyCatalogState();
   }
 
   void replaceFromProfile(ParsedProfile profile) {
@@ -21,7 +32,7 @@ class ProxyCatalog extends ChangeNotifier {
     }
 
     final previousSelections = {
-      for (final group in _groups) group.id: group.selectedNodeId,
+      for (final group in state.groups) group.id: group.selectedNodeId,
     };
     final nodes = _mergeLatency(profile.nodes);
     final nextGroups = <ProxyGroup>[
@@ -73,27 +84,27 @@ class ProxyCatalog extends ChangeNotifier {
       ),
     );
 
-    _groups = nextGroups;
-    notifyListeners();
+    state = ProxyCatalogState(groups: nextGroups);
   }
 
   void selectNode(String groupId, String nodeId) {
-    _groups = [
-      for (final group in _groups)
-        if (group.id == groupId)
-          group.copyWith(
-            selectedNodeId: nodeId,
-            nodes: _markSelected(group.nodes, nodeId),
-          )
-        else
-          group,
-    ];
-    notifyListeners();
+    state = state.copyWith(
+      groups: [
+        for (final group in state.groups)
+          if (group.id == groupId)
+            group.copyWith(
+              selectedNodeId: nodeId,
+              nodes: _markSelected(group.nodes, nodeId),
+            )
+          else
+            group,
+      ],
+    );
   }
 
   List<ProxyNode> _mergeLatency(List<ProxyNode> nodes) {
     final previous = <String, ProxyNode>{};
-    for (final group in _groups) {
+    for (final group in state.groups) {
       for (final node in group.nodes) {
         previous[node.id] = node;
       }
@@ -126,3 +137,8 @@ class ProxyCatalog extends ChangeNotifier {
     return normalized.isEmpty ? 'group' : normalized;
   }
 }
+
+final proxyCatalogProvider =
+    NotifierProvider<ProxyCatalogNotifier, ProxyCatalogState>(
+      ProxyCatalogNotifier.new,
+    );
