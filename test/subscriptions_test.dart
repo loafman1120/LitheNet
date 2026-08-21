@@ -3,22 +3,23 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lithenet/core/runtime/core_gateway.dart';
-import 'package:lithenet/core/runtime/core_notifier.dart';
-import 'package:lithenet/data/models/proxy_node.dart';
-import 'package:lithenet/data/models/subscription.dart';
-import 'package:lithenet/data/storage/json_file_store.dart';
-import 'package:lithenet/features/proxies/application/proxies_notifier.dart';
-import 'package:lithenet/features/proxies/application/proxy_catalog.dart';
-import 'package:lithenet/features/subscriptions/application/subscriptions_notifier.dart';
-import 'package:lithenet/features/subscriptions/data/profile_store.dart';
-import 'package:lithenet/features/subscriptions/data/subscription_fetcher.dart';
-import 'package:lithenet/features/subscriptions/data/subscription_errors.dart';
-import 'package:lithenet/features/subscriptions/data/subscription_headers.dart';
-import 'package:lithenet/features/subscriptions/data/subscription_list_store.dart';
-import 'package:lithenet/features/subscriptions/data/subscription_parser.dart';
-import 'package:lithenet/features/subscriptions/data/subscription_url_normalizer.dart';
-import 'package:lithenet/features/subscriptions/data/subscriptions_repository.dart';
+import 'package:target/core/runtime/core_gateway.dart';
+import 'package:target/core/runtime/core_notifier.dart';
+import 'package:target/data/models/proxy_node.dart';
+import 'package:target/data/models/subscription.dart';
+import 'package:target/data/storage/json_file_store.dart';
+import 'package:target/data/storage/secret_store.dart';
+import 'package:target/features/proxies/application/proxies_notifier.dart';
+import 'package:target/features/proxies/application/proxy_catalog.dart';
+import 'package:target/features/subscriptions/application/subscriptions_notifier.dart';
+import 'package:target/features/subscriptions/data/profile_store.dart';
+import 'package:target/features/subscriptions/data/subscription_fetcher.dart';
+import 'package:target/features/subscriptions/data/subscription_errors.dart';
+import 'package:target/features/subscriptions/data/subscription_headers.dart';
+import 'package:target/features/subscriptions/data/subscription_list_store.dart';
+import 'package:target/features/subscriptions/data/subscription_parser.dart';
+import 'package:target/features/subscriptions/data/subscription_url_normalizer.dart';
+import 'package:target/features/subscriptions/data/subscriptions_repository.dart';
 
 void main() {
   test('subscription URL validation rejects malformed percent encoding', () {
@@ -129,7 +130,7 @@ void main() {
           id: 'sub-headers',
           name: 'Headers',
           url: 'http://127.0.0.1:${server.port}/sub',
-          userAgent: 'LitheNet/0.1',
+          userAgent: 'Target/0.1',
           allowInsecureHttp: true,
         ),
       );
@@ -270,14 +271,15 @@ void main() {
 
   test('loads persisted subscriptions and restores proxy catalog', () async {
     final directory = await Directory.systemTemp.createTemp(
-      'lithenet_subscriptions',
+      'Target_subscriptions',
     );
     addTearDown(() => directory.delete(recursive: true));
 
-    final listStore = FileSubscriptionListStore(
+    final listStore = SecureSubscriptionListStore(
       JsonFileStore(
         File('${directory.path}${Platform.pathSeparator}subscriptions.json'),
       ),
+      MemorySecretStore(),
     );
     final profileStore = FileProfileStore(
       Directory('${directory.path}${Platform.pathSeparator}profiles'),

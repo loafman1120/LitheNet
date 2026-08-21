@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lithenet/core/logging/ansi_escape.dart';
+import 'package:target/core/logging/ansi_escape.dart';
 
 void main() {
   test('removes sing-box ANSI color sequences without changing Unicode', () {

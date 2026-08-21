@@ -60,7 +60,7 @@ class LibboxConfigBuilder {
 
       final tag = inbound['tag']?.toString().trim();
       final inboundTag = tag == null || tag.isEmpty
-          ? 'lithe-migrated-inbound-$index'
+          ? 'target-migrated-inbound-$index'
           : tag;
       inbound['tag'] = inboundTag;
 
@@ -170,7 +170,7 @@ class LibboxConfigBuilder {
       inbounds.add({
         'type': 'tun',
         'tag': 'tun',
-        'interface_name': 'lithe0',
+        'interface_name': 'target0',
         'address': ['172.18.0.1/30', if (settings.ipv6) 'fd00:1:fd00:1::1/126'],
         'mtu': 1500,
         'auto_route': true,

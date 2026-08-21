@@ -1,10 +1,42 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lithenet/core/logging/app_logger.dart';
-import 'package:lithenet/data/models/log_entry.dart';
-import 'package:lithenet/features/logs/application/logs_notifier.dart';
+import 'package:target/core/logging/app_logger.dart';
+import 'package:target/data/models/log_entry.dart';
+import 'package:target/features/logs/application/logs_notifier.dart';
 
 void main() {
+  test(
+    'application logger persists entries and stack traces to disk',
+    () async {
+      final temporaryDirectory = await Directory.systemTemp.createTemp(
+        'target_logging_test_',
+      );
+      addTearDown(() async {
+        AppLogger.shutdownFileLogging();
+        await temporaryDirectory.delete(recursive: true);
+      });
+      AppLogger.clear();
+
+      await AppLogger.initialize(temporaryDirectory);
+      AppLogger.error(
+        'libboxd installation failed',
+        source: 'libboxd',
+        error: StateError('exit code 1'),
+        stackTrace: StackTrace.fromString('service stack'),
+      );
+
+      final logFile = File(AppLogger.logFilePath!);
+      expect(await logFile.exists(), isTrue);
+      final contents = await logFile.readAsString();
+      expect(contents, contains('[ERROR  ] [libboxd]'));
+      expect(contents, contains('libboxd installation failed'));
+      expect(contents, contains('exit code 1'));
+      expect(contents, contains('service stack'));
+    },
+  );
+
   test('application logger entries appear in the logs notifier', () async {
     AppLogger.clear();
     final container = ProviderContainer();

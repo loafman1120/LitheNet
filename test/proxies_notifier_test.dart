@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lithenet/core/runtime/core_gateway.dart';
-import 'package:lithenet/core/runtime/core_notifier.dart';
-import 'package:lithenet/data/models/proxy_node.dart';
-import 'package:lithenet/data/models/subscription.dart';
-import 'package:lithenet/features/proxies/application/proxies_notifier.dart';
-import 'package:lithenet/features/proxies/application/proxy_catalog.dart';
-import 'package:lithenet/features/subscriptions/data/subscription_parser.dart';
+import 'package:target/core/runtime/core_gateway.dart';
+import 'package:target/core/runtime/core_notifier.dart';
+import 'package:target/data/models/proxy_node.dart';
+import 'package:target/data/models/subscription.dart';
+import 'package:target/features/proxies/application/proxies_notifier.dart';
+import 'package:target/features/proxies/application/proxy_catalog.dart';
+import 'package:target/features/subscriptions/data/subscription_parser.dart';
 
 void main() {
   ProviderContainer newContainer() {

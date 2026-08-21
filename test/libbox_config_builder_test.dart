@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lithenet/core/runtime/libbox_config_builder.dart';
-import 'package:lithenet/data/models/app_settings.dart';
-import 'package:lithenet/data/models/proxy_node.dart';
+import 'package:target/core/runtime/libbox_config_builder.dart';
+import 'package:target/data/models/app_settings.dart';
+import 'package:target/data/models/proxy_node.dart';
 
 void main() {
   test('builds a sing-box mixed inbound configuration', () {

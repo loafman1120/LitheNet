@@ -1,6 +1,6 @@
-# Lithe
+# Target
 
-Lithe is a Flutter desktop proxy client backed by Libbox. It initializes the
+Target is a Flutter desktop proxy client backed by Libbox. It initializes the
 Libbox native library and uses its authenticated loopback gRPC command server
 for runtime state, commands, and logs.
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,10 +14,11 @@ import '../features/subscriptions/data/profile_store.dart';
 import '../features/subscriptions/data/subscription_list_store.dart';
 import '../features/subscriptions/data/subscriptions_repository.dart';
 import 'app_identity.dart';
+import 'desktop_tray_controller.dart';
 import 'router.dart';
 
-class LitheNetApp extends StatelessWidget {
-  const LitheNetApp({
+class TargetApp extends StatelessWidget {
+  const TargetApp({
     super.key,
     this.coreGateway,
     this.initialSettings,
@@ -53,30 +56,44 @@ class LitheNetApp extends StatelessWidget {
             subscriptionRepository!,
           ),
       ],
-      child: const _LitheNetAppView(),
+      child: const _TargetAppView(),
     );
   }
 }
 
-class _LitheNetAppView extends ConsumerStatefulWidget {
-  const _LitheNetAppView();
+class _TargetAppView extends ConsumerStatefulWidget {
+  const _TargetAppView();
 
   @override
-  ConsumerState<_LitheNetAppView> createState() => _LitheNetAppViewState();
+  ConsumerState<_TargetAppView> createState() => _TargetAppViewState();
 }
 
-class _LitheNetAppViewState extends ConsumerState<_LitheNetAppView> {
+class _TargetAppViewState extends ConsumerState<_TargetAppView> {
   late final AppRouter _appRouter = AppRouter();
+  late final DesktopTrayController _trayController = DesktopTrayController(
+    onToggleConnection: _toggleConnection,
+    onExit: _stopCore,
+  );
 
   @override
   void initState() {
     super.initState();
     ref.read(subscriptionsProvider.notifier).load();
+    unawaited(_trayController.initialize(ref.read(coreProvider)));
+  }
+
+  @override
+  void dispose() {
+    _trayController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider).settings;
+    ref.listen<CoreState>(coreProvider, (_, next) {
+      unawaited(_trayController.updateCoreState(next));
+    });
 
     return MaterialApp.router(
       title: AppIdentity.displayName,
@@ -94,5 +111,21 @@ class _LitheNetAppViewState extends ConsumerState<_LitheNetAppView> {
       ThemeModeOption.light => ThemeMode.light,
       ThemeModeOption.dark => ThemeMode.dark,
     };
+  }
+
+  Future<void> _toggleConnection() async {
+    final notifier = ref.read(coreProvider.notifier);
+    if (ref.read(coreProvider).running) {
+      await notifier.stop();
+    } else {
+      await notifier.start();
+    }
+  }
+
+  Future<void> _stopCore() async {
+    final core = ref.read(coreProvider);
+    if (core.running || core.busy) {
+      await ref.read(coreProvider.notifier).stop();
+    }
   }
 }

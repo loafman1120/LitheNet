@@ -2,17 +2,17 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lithenet/data/models/app_settings.dart';
-import 'package:lithenet/data/storage/app_storage_paths.dart';
-import 'package:lithenet/data/storage/json_file_store.dart';
-import 'package:lithenet/features/settings/application/settings_notifier.dart';
-import 'package:lithenet/features/settings/data/settings_store.dart';
+import 'package:target/data/models/app_settings.dart';
+import 'package:target/data/storage/app_storage_paths.dart';
+import 'package:target/data/storage/json_file_store.dart';
+import 'package:target/features/settings/application/settings_notifier.dart';
+import 'package:target/features/settings/data/settings_store.dart';
 
 void main() {
   test(
     'AppStoragePaths creates settings, profile, and core locations',
     () async {
-      final directory = await Directory.systemTemp.createTemp('lithenet_paths');
+      final directory = await Directory.systemTemp.createTemp('target_paths');
       addTearDown(() => directory.delete(recursive: true));
 
       final paths = await AppStoragePaths.fromRoot(directory);
@@ -58,7 +58,7 @@ void main() {
 
   test('SettingsStore saves and loads settings.json', () async {
     final directory = await Directory.systemTemp.createTemp(
-      'lithenet_settings',
+      'target_settings',
     );
     addTearDown(() => directory.delete(recursive: true));
 

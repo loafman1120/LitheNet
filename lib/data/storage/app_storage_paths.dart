@@ -1,6 +1,9 @@
 import 'dart:io';
 
+import 'package:path_provider/path_provider.dart';
+
 import '../../app/app_identity.dart';
+import '../../core/logging/app_logger.dart';
 
 class AppStoragePaths {
   const AppStoragePaths._(this.root);
@@ -19,11 +22,18 @@ class AppStoragePaths {
   Directory get coreDirectory =>
       Directory('${root.path}${Platform.pathSeparator}core');
 
+  /// Persistent cache file for sing-box / libbox cache_file experimental.
+  File get cacheFile =>
+      File('${coreDirectory.path}${Platform.pathSeparator}cache.db');
+
+  /// Persistent application log directory.
+  Directory get logsDirectory =>
+      Directory('${root.path}${Platform.pathSeparator}logs');
+
   static Future<AppStoragePaths> resolve() async {
-    final root = Directory(_defaultRootPath());
+    final root = await _resolveRootDirectory();
     final paths = AppStoragePaths._(root);
     await paths.ensureCreated();
-    await paths._migrateLegacyDirectories();
     return paths;
   }
 
@@ -37,65 +47,45 @@ class AppStoragePaths {
     await root.create(recursive: true);
     await coreDirectory.create(recursive: true);
     await profilesDirectory.create(recursive: true);
+    await logsDirectory.create(recursive: true);
   }
 
-  Future<void> _migrateLegacyDirectories() async {
-    for (final legacy in _legacyRoots()) {
-      if (!await legacy.exists() || legacy.path == root.path) {
-        continue;
+  /// Resolves the canonical root using `path_provider` as primary source.
+  /// Falls back to the manual XDG / APPDATA heuristic when the plugin is
+  /// unavailable (e.g. unit tests or unsupported platform).
+  static Future<Directory> _resolveRootDirectory() async {
+    try {
+      final providerDir = await getApplicationSupportDirectory();
+      final path = providerDir.path.trim();
+      if (path.isNotEmpty) {
+        // `path_provider` already returns an app-scoped directory:
+        // - Windows: %APPDATA%/top.loafman.target
+        // - macOS: ~/Library/Application Support/top.loafman.target
+        // - Linux: $XDG_DATA_HOME/top.loafman.target or ~/.local/share
+        // Use it directly to honour platform conventions.
+        AppLogger.info(
+          'AppStoragePaths using provider directory: $path',
+          source: 'storage',
+        );
+        return Directory(path);
       }
-
-      await _copyFileIfMissing(
-        File('${legacy.path}${Platform.pathSeparator}settings.json'),
-        settingsFile,
-      );
-      await _copyFileIfMissing(
-        File('${legacy.path}${Platform.pathSeparator}subscriptions.json'),
-        subscriptionsFile,
-      );
-      await _copyDirectoryContentsIfMissing(
-        Directory('${legacy.path}${Platform.pathSeparator}profiles'),
-        profilesDirectory,
-      );
-      await _copyDirectoryContentsIfMissing(
-        Directory('${legacy.path}${Platform.pathSeparator}core'),
-        coreDirectory,
+    } on Object catch (error, stackTrace) {
+      AppLogger.warning(
+        'path_provider unavailable, using manual fallback',
+        source: 'storage',
+        error: error,
+        stackTrace: stackTrace,
       );
     }
+    final manual = _manualRootPath();
+    AppLogger.info(
+      'AppStoragePaths using manual fallback: $manual',
+      source: 'storage',
+    );
+    return Directory(manual);
   }
 
-  Future<void> _copyFileIfMissing(File source, File destination) async {
-    if (!await source.exists() || await destination.exists()) {
-      return;
-    }
-    await destination.parent.create(recursive: true);
-    await source.copy(destination.path);
-  }
-
-  Future<void> _copyDirectoryContentsIfMissing(
-    Directory source,
-    Directory destination,
-  ) async {
-    if (!await source.exists()) {
-      return;
-    }
-    await destination.create(recursive: true);
-    await for (final entity in source.list(recursive: true)) {
-      if (entity is! File) {
-        continue;
-      }
-      final relative = entity.path.substring(source.path.length + 1);
-      final target = File(
-        '${destination.path}${Platform.pathSeparator}'
-        '${relative.replaceAll(RegExp(r'[\\/]'), Platform.pathSeparator)}',
-      );
-      if (await target.exists()) {
-        continue;
-      }
-      await target.parent.create(recursive: true);
-      await entity.copy(target.path);
-    }
-  }
+  static String _manualRootPath() => _defaultRootPath();
 
   static String _defaultRootPath() {
     final separator = Platform.pathSeparator;
@@ -131,42 +121,10 @@ class AppStoragePaths {
   static Directory _applicationSupportDirectoryFallback() {
     try {
       final home = _homeDirectoryPath() ?? Directory.current.path;
-      return Directory('$home${Platform.pathSeparator}.lithe');
+      return Directory('$home${Platform.pathSeparator}.target');
     } catch (_) {
       return Directory.current;
     }
-  }
-
-  List<Directory> _legacyRoots() {
-    final separator = Platform.pathSeparator;
-    final roots = <Directory>[];
-    if (Platform.isWindows) {
-      final roaming = Platform.environment['APPDATA'];
-      if (roaming != null && roaming.trim().isNotEmpty) {
-        roots
-          ..add(Directory('$roaming${separator}LitheNet'))
-          ..add(
-            Directory(
-              '$roaming${separator}com.example'
-              '${separator}lithenet${separator}LitheNet',
-            ),
-          );
-      }
-    }
-
-    final home = _homeDirectoryPath();
-    if (home != null) {
-      roots
-        ..add(Directory('$home$separator.lithenet'))
-        ..add(
-          Directory(
-            '$home$separator.lithenet'
-            '$separator${AppIdentity.legacyDisplayName}',
-          ),
-        );
-    }
-
-    return roots;
   }
 
   static String? _homeDirectoryPath() {
@@ -176,5 +134,32 @@ class AppStoragePaths {
       return null;
     }
     return home;
+  }
+
+  /// Helper for callers that need a temporary directory via path_provider.
+  static Future<Directory> resolveTempDirectory() async {
+    try {
+      final temp = await getTemporaryDirectory();
+      if (temp.path.trim().isNotEmpty) return temp;
+    } on Object catch (error, stackTrace) {
+      AppLogger.warning(
+        'getTemporaryDirectory failed, using systemTemp',
+        source: 'storage',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    return Directory.systemTemp;
+  }
+
+  /// Helper for libbox working/cache locations that prefer the support dir.
+  static Future<Directory> resolveCacheDirectory() async {
+    try {
+      final cache = await getApplicationCacheDirectory();
+      if (cache.path.trim().isNotEmpty) return cache;
+    } on Object catch (_) {
+      // Not critical; fall back to support
+    }
+    return (await resolve()).coreDirectory;
   }
 }

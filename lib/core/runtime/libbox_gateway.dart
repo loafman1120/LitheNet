@@ -1,38 +1,46 @@
+// ignore_for_file: prefer_initializing_formals
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:fixnum/fixnum.dart';
 import 'package:grpc/grpc.dart';
-import 'package:libbox/libbox.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:protobuf/well_known_types/google/protobuf/empty.pb.dart';
 
 import '../../data/models/app_settings.dart';
 import '../../data/models/log_entry.dart';
 import '../../data/models/proxy_group.dart';
 import '../../data/models/proxy_node.dart';
+import '../../data/storage/app_storage_paths.dart';
 import '../logging/ansi_escape.dart';
 import '../logging/app_logger.dart';
 import 'core_gateway.dart';
 import 'core_models.dart';
 import 'grpc/generated/started_service.pb.dart' as daemon_pb;
 import 'grpc/generated/started_service.pbgrpc.dart' hide LogLevel;
+import 'grpc/generated/libbox/v1/manager.pb.dart' as manager_pb;
+import 'grpc/generated/libbox/v1/manager.pbgrpc.dart';
 import 'libbox_config_builder.dart';
+import 'libboxd_service_manager.dart';
 
 class LibboxGateway implements CoreGateway {
-  LibboxGateway({LibboxFfi Function()? loader, Directory? workingDirectory})
-    : _loader = loader ?? _loadBundledLibrary,
-      _workingDirectory =
-          workingDirectory ??
-          Directory(
-            '${Directory.systemTemp.path}${Platform.pathSeparator}lithe',
-          );
+  LibboxGateway({
+    AppStoragePaths? storagePaths,
+    Directory? workingDirectory,
+  })  : _injectedPaths = storagePaths,
+        _workingDirectory = workingDirectory;
 
-  final LibboxFfi Function() _loader;
-  final Directory _workingDirectory;
-  String get _cacheFilePath =>
-      '${_workingDirectory.path}${Platform.pathSeparator}cache.db';
+  /// Test-only override. When provided, this directory is used as the
+  /// isolated AppStoragePaths root so tests never touch the real
+  /// platform support directory.
+  final AppStoragePaths? _injectedPaths;
+  final Directory? _workingDirectory;
+
+  AppStoragePaths? _resolvedPaths;
+  Future<AppStoragePaths>? _pathsFuture;
+
   final StreamController<CoreSnapshot> _snapshots =
       StreamController<CoreSnapshot>.broadcast();
   final List<LogEntry> _logs = [];
@@ -46,13 +54,13 @@ class LibboxGateway implements CoreGateway {
   AppSettings _settings = const AppSettings();
   List<ProxyNode> _proxyNodes = const [];
   String? _rawConfig;
-  LibboxFfi? _core;
-  LibboxService? _service;
+  final LibboxdServiceManager _serviceManager = LibboxdServiceManager();
+  LibboxManagerClient? _manager;
+  Process? _daemonProcess;
   ClientChannel? _channel;
   StartedServiceClient? _daemon;
   CallOptions? _callOptions;
-  int? _commandPort;
-  String? _commandSecret;
+  String? _socketPath;
   Future<void> _lifecycleTail = Future<void>.value();
   CoreSnapshot _current = const CoreSnapshot(
     lifecycle: CoreLifecycle.stopped,
@@ -73,20 +81,24 @@ class LibboxGateway implements CoreGateway {
 
   @override
   Future<CoreSnapshot> current() async {
-    final service = _service;
-    if (service == null) return _current;
-    final state = service.state();
+    final manager = _manager;
+    if (manager == null) return _current;
+    final state = await manager.getState(Empty(), options: _callOptions);
     final lifecycle = switch (state.state) {
-      LibboxServiceState.running => CoreLifecycle.running,
-      LibboxServiceState.stopped ||
-      LibboxServiceState.closed => CoreLifecycle.stopped,
-      LibboxServiceState.unknown => CoreLifecycle.failed,
+      manager_pb.ServiceStateType.SERVICE_STATE_RUNNING =>
+        CoreLifecycle.running,
+      manager_pb.ServiceStateType.SERVICE_STATE_STARTING =>
+        CoreLifecycle.starting,
+      manager_pb.ServiceStateType.SERVICE_STATE_STOPPING =>
+        CoreLifecycle.stopping,
+      manager_pb.ServiceStateType.SERVICE_STATE_FAILED => CoreLifecycle.failed,
+      _ => CoreLifecycle.stopped,
     };
     _publish(
       _copyCurrent(
         lifecycle: lifecycle,
-        message: state.lastError?.isNotEmpty == true
-            ? state.lastError!
+        message: state.errorMessage.isNotEmpty
+            ? state.errorMessage
             : lifecycle == CoreLifecycle.running
             ? 'Libbox is running.'
             : 'Libbox is stopped.',
@@ -98,12 +110,18 @@ class LibboxGateway implements CoreGateway {
   @override
   Future<void> configure(AppSettings settings) => _serialize(() async {
     _settings = settings;
-    final config = _buildConfig();
-    await _core?.checkConfigAsync(config);
-    final service = _service;
-    if (service != null) {
-      await service.reloadAsync(config);
-      _applySystemProxy(service);
+    final config = await _buildConfig();
+    final manager = _manager;
+    if (manager != null) {
+      final check = await manager.checkConfig(
+        manager_pb.ConfigRequest(content: config),
+        options: _callOptions,
+      );
+      if (!check.valid) throw StateError(check.formattedError);
+      await manager.reload(
+        manager_pb.ReloadRequest(config: config),
+        options: _callOptions,
+      );
     }
   });
 
@@ -111,22 +129,26 @@ class LibboxGateway implements CoreGateway {
   Future<void> setProxyNodes(List<ProxyNode> nodes) => _serialize(() async {
     _proxyNodes = List.unmodifiable(nodes);
     _rawConfig = null;
-    final service = _service;
-    if (service != null) {
-      final config = _buildConfig();
-      await _core!.checkConfigAsync(config);
-      await service.reloadAsync(config);
+    final manager = _manager;
+    if (manager != null) {
+      final config = await _buildConfig();
+      await manager.reload(
+        manager_pb.ReloadRequest(config: config),
+        options: _callOptions,
+      );
     }
   });
 
   @override
   Future<void> setRawConfig(String? config) => _serialize(() async {
     _rawConfig = config?.trim().isEmpty == true ? null : config?.trim();
-    final service = _service;
-    if (service != null) {
-      final next = _buildConfig();
-      await _core!.checkConfigAsync(next);
-      await service.reloadAsync(next);
+    final manager = _manager;
+    if (manager != null) {
+      final next = await _buildConfig();
+      await manager.reload(
+        manager_pb.ReloadRequest(config: next),
+        options: _callOptions,
+      );
     }
   });
 
@@ -135,7 +157,7 @@ class LibboxGateway implements CoreGateway {
 
   Future<void> _startLocked() async {
     _ensureAvailable();
-    if (_service != null) return;
+    if (_manager != null) return;
     _publish(
       _copyCurrent(
         lifecycle: CoreLifecycle.starting,
@@ -145,14 +167,19 @@ class LibboxGateway implements CoreGateway {
     await _ensureProxyPortAvailable();
     await _ensureCore();
 
-    final config = _buildConfig();
-    await _core!.checkConfigAsync(config);
-    AppLogger.info('Starting Libbox ${_core!.version()}');
-    final service = await _core!.startAsync(config);
-    _service = service;
+    final config = await _buildConfig();
     try {
-      _applySystemProxy(service);
       await _connectCommandServer();
+      final manager = _manager!;
+      final check = await manager.checkConfig(
+        manager_pb.ConfigRequest(content: config),
+        options: _callOptions,
+      );
+      if (!check.valid) throw StateError(check.formattedError);
+      await manager.start(
+        manager_pb.StartRequest(config: config),
+        options: _callOptions,
+      );
       _subscribeCommandStreams();
       _publish(
         _copyCurrent(
@@ -162,19 +189,19 @@ class LibboxGateway implements CoreGateway {
       );
     } on Object {
       await _shutdownTransport();
-      await service.closeAsync();
-      _service = null;
+      await _shutdownTransport();
       rethrow;
     }
   }
 
-  String _buildConfig() {
+  Future<String> _buildConfig() async {
+    final cacheFilePath = await _resolveCacheFilePath();
     final raw = _rawConfig;
     if (raw == null) {
       return LibboxConfigBuilder.build(
         _settings,
         proxyNodes: _proxyNodes,
-        cacheFilePath: _cacheFilePath,
+        cacheFilePath: cacheFilePath,
       );
     }
     final decoded = jsonDecode(raw);
@@ -194,7 +221,7 @@ class LibboxGateway implements CoreGateway {
       if (experimental['cache_file'] is Map)
         ...Map<String, dynamic>.from(experimental['cache_file'] as Map),
       'enabled': true,
-      'path': singBoxWindowsPath(_cacheFilePath),
+      'path': singBoxWindowsPath(cacheFilePath),
     };
     config['experimental'] = experimental;
     return jsonEncode(config);
@@ -204,8 +231,8 @@ class LibboxGateway implements CoreGateway {
   Future<void> stop() => _serialize(_stopLocked);
 
   Future<void> _stopLocked() async {
-    final service = _service;
-    if (service == null) {
+    final manager = _manager;
+    if (manager == null) {
       _publish(
         _copyCurrent(
           lifecycle: CoreLifecycle.stopped,
@@ -220,9 +247,8 @@ class LibboxGateway implements CoreGateway {
         message: 'Stopping Libbox...',
       ),
     );
+    await manager.stop(Empty(), options: _callOptions);
     await _shutdownTransport();
-    await service.closeAsync();
-    _service = null;
     _groups.clear();
     _connections.clear();
     _publish(
@@ -303,36 +329,123 @@ class LibboxGateway implements CoreGateway {
     await _snapshots.close();
   });
 
+  // ---------------------------------------------------------------------------
+  // path_provider-aware storage resolution
+  // ---------------------------------------------------------------------------
+
+  /// Returns the canonical [AppStoragePaths], lazily resolved via
+  /// `path_provider` on first use.  Tests can inject an isolated
+  /// `workingDirectory` which is wrapped as a synthetic [AppStoragePaths]
+  /// so they never touch the real platform support directory.
+  Future<AppStoragePaths> _resolveStoragePaths() async {
+    if (_resolvedPaths != null) return _resolvedPaths!;
+    if (_pathsFuture != null) return await _pathsFuture!;
+    final future = () async {
+      final injected = _injectedPaths;
+      if (injected != null) return injected;
+      final working = _workingDirectory;
+      if (working != null) {
+        return AppStoragePaths.fromRoot(working);
+      }
+      // Primary: let AppStoragePaths use path_provider's
+      // getApplicationSupportDirectory internally.
+      return AppStoragePaths.resolve();
+    }();
+    _pathsFuture = future;
+    try {
+      _resolvedPaths = await future;
+      return _resolvedPaths!;
+    } finally {
+      _pathsFuture = null;
+    }
+  }
+
+  Future<Directory> _resolveBaseDirectory() async {
+    final override = _settings.serviceBasePath.trim();
+    if (override.isNotEmpty) return Directory(override);
+    final paths = await _resolveStoragePaths();
+    return paths.coreDirectory;
+  }
+
+  Future<String> _resolveCacheFilePath() async {
+    // Cache lives alongside the base directory so it survives re-installs
+    // and follows the user's custom basePath when set.
+    final base = await _resolveBaseDirectory();
+    // Ensure the base exists so the cache file's parent is ready.
+    try {
+      await base.create(recursive: true);
+    } on Object catch (error, stackTrace) {
+      AppLogger.warning('Failed to create libbox base directory',
+          source: 'libbox', error: error, stackTrace: stackTrace);
+    }
+    return '${base.path}${Platform.pathSeparator}cache.db';
+  }
+
+  Future<String> _resolveWorkingPath() async {
+    final override = _settings.serviceWorkingPath.trim();
+    if (override.isNotEmpty) return override;
+    // When no override is set, let libboxd default to basePath.
+    // Return empty so LibboxdServiceManager skips the flag.
+    return '';
+  }
+
+  Future<String> _resolveTempPath() async {
+    final override = _settings.serviceTempPath.trim();
+    if (override.isNotEmpty) return override;
+    // Prefer path_provider's cache/temp directory as libbox scratch space.
+    try {
+      final cacheDir = await getApplicationCacheDirectory();
+      if (cacheDir.path.trim().isNotEmpty) {
+        final targetCache =
+            Directory('${cacheDir.path}${Platform.pathSeparator}Target');
+        await targetCache.create(recursive: true);
+        return targetCache.path;
+      }
+    } on Object catch (_) {}
+    try {
+      final tmp = await getTemporaryDirectory();
+      if (tmp.path.trim().isNotEmpty) {
+        final targetTmp =
+            Directory('${tmp.path}${Platform.pathSeparator}Target');
+        await targetTmp.create(recursive: true);
+        return targetTmp.path;
+      }
+    } on Object catch (error, stackTrace) {
+      AppLogger.warning('path_provider temp resolve failed',
+          source: 'libbox', error: error, stackTrace: stackTrace);
+    }
+    return '';
+  }
+
   Future<void> _ensureCore() async {
-    if (_core != null) return;
-    await _workingDirectory.create(recursive: true);
-    final port = await _availablePort();
-    final secret = _randomToken();
-    final core = _loader();
-    core.init(
-      LibboxInitOptions(
-        basePath: _workingDirectory.path,
-        workingPath: _workingDirectory.path,
-        tempPath: _workingDirectory.path,
-        commandPort: port,
-        commandSecret: secret,
-        logMaxLines: 1000,
-      ),
+    if (_daemonProcess != null) return;
+    final baseDir = await _resolveBaseDirectory();
+    await baseDir.create(recursive: true);
+    _socketPath = '${baseDir.path}${Platform.pathSeparator}command.sock';
+    if (await File(_socketPath!).exists()) return;
+    final workingPath = await _resolveWorkingPath();
+    final tempPath = await _resolveTempPath();
+    AppLogger.info(
+        'Launching libboxd base=$baseDir working=$workingPath temp=$tempPath',
+        source: 'libbox');
+    _daemonProcess = await _serviceManager.launch(
+      basePath: baseDir.path,
+      workingPath: workingPath,
+      tempPath: tempPath,
+      locale: _settings.serviceLocale,
     );
-    _core = core;
-    _commandPort = port;
-    _commandSecret = secret;
   }
 
   Future<void> _connectCommandServer() async {
     final channel = ClientChannel(
-      InternetAddress.loopbackIPv4.address,
-      port: _commandPort!,
+      InternetAddress(_socketPath!, type: InternetAddressType.unix),
+      port: 0,
       options: const ChannelOptions(credentials: ChannelCredentials.insecure()),
     );
     _channel = channel;
     _daemon = StartedServiceClient(channel);
-    _callOptions = CallOptions(metadata: {'x-command-secret': _commandSecret!});
+    _manager = LibboxManagerClient(channel);
+    _callOptions = CallOptions();
     Object? lastError;
     final deadline = DateTime.now().add(const Duration(seconds: 5));
     while (DateTime.now().isBefore(deadline)) {
@@ -383,7 +496,7 @@ class LibboxGateway implements CoreGateway {
     final subscription = stream.listen(
       onData,
       onError: (Object error, StackTrace stackTrace) {
-        if (_service != null && !_disposed) {
+        if (_manager != null && !_disposed) {
           AppLogger.warning(
             'Libbox gRPC stream failed',
             error: error,
@@ -523,19 +636,6 @@ class LibboxGateway implements CoreGateway {
     );
   }
 
-  void _applySystemProxy(LibboxService service) {
-    if (_settings.systemProxy) {
-      service.enableSystemProxy(
-        LibboxSystemProxyOptions(
-          host: _settings.listenAddress,
-          port: _settings.mixedPort,
-        ),
-      );
-    } else {
-      service.disableSystemProxy();
-    }
-  }
-
   Future<void> _shutdownTransport() async {
     final subscriptions = List<StreamSubscription<Object?>>.of(_subscriptions);
     _subscriptions.clear();
@@ -545,8 +645,18 @@ class LibboxGateway implements CoreGateway {
     final channel = _channel;
     _channel = null;
     _daemon = null;
+    _manager = null;
     _callOptions = null;
     await channel?.shutdown();
+    final process = _daemonProcess;
+    _daemonProcess = null;
+    if (process != null) {
+      process.kill();
+      await process.exitCode.timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => -1,
+      );
+    }
   }
 
   StartedServiceClient _requireDaemon(String operation) {
@@ -623,34 +733,6 @@ class LibboxGateway implements CoreGateway {
     }
   }
 
-  static LibboxFfi _loadBundledLibrary() {
-    final explicit = Platform.environment['LIBBOX_LIBRARY'];
-    final executableDirectory = File(Platform.resolvedExecutable).parent.path;
-    final name = Platform.isWindows
-        ? 'libbox.dll'
-        : Platform.isMacOS
-        ? 'libbox.dylib'
-        : 'libbox.so';
-    final candidates = <String>[
-      if (explicit != null && explicit.trim().isNotEmpty) explicit.trim(),
-      '$executableDirectory${Platform.pathSeparator}$name',
-      '${Directory.current.path}${Platform.pathSeparator}$name',
-      '${Directory.current.path}${Platform.pathSeparator}bin'
-          '${Platform.pathSeparator}$name',
-      // Development layout: LitheNet and the sibling libbox checkout share
-      // the Project directory, whose build output is not copied into the app.
-      '${Directory.current.parent.path}${Platform.pathSeparator}libbox'
-          '${Platform.pathSeparator}build${Platform.pathSeparator}$name',
-    ];
-    for (final candidate in candidates) {
-      if (File(candidate).existsSync()) return LibboxFfi.open(candidate);
-    }
-    throw CoreUnavailableException(
-      '$name was not found. Put it beside Target, under bin/, or set '
-      'LIBBOX_LIBRARY.',
-    );
-  }
-
   static LogLevel _logLevel(daemon_pb.LogLevel level) => switch (level) {
     daemon_pb.LogLevel.TRACE => LogLevel.trace,
     daemon_pb.LogLevel.DEBUG => LogLevel.debug,
@@ -660,21 +742,6 @@ class LibboxGateway implements CoreGateway {
     daemon_pb.LogLevel.PANIC => LogLevel.error,
     _ => LogLevel.info,
   };
-
-  static Future<int> _availablePort() async {
-    final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-    final port = socket.port;
-    await socket.close();
-    return port;
-  }
-
-  static String _randomToken() {
-    final random = Random.secure();
-    return List<int>.generate(
-      32,
-      (_) => random.nextInt(256),
-    ).map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
-  }
 }
 
 class _PendingUrlTest {

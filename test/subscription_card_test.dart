@@ -1,7 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lithenet/data/models/subscription.dart';
-import 'package:lithenet/features/subscriptions/presentation/widgets/subscription_card.dart';
+import 'package:target/data/models/subscription.dart';
+import 'package:target/features/subscriptions/presentation/widgets/subscription_card.dart';
 
 void main() {
   testWidgets('active and update status badges share the same row', (

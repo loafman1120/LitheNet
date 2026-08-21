@@ -56,6 +56,10 @@ class AppSettings {
     this.ipv6 = false,
     this.systemProxy = true,
     this.perAppProxy = false,
+    this.serviceBasePath = '',
+    this.serviceWorkingPath = '',
+    this.serviceTempPath = '',
+    this.serviceLocale = '',
   });
 
   final ThemeModeOption themeMode;
@@ -67,6 +71,10 @@ class AppSettings {
   final bool ipv6;
   final bool systemProxy;
   final bool perAppProxy;
+  final String serviceBasePath;
+  final String serviceWorkingPath;
+  final String serviceTempPath;
+  final String serviceLocale;
 
   AppSettings copyWith({
     ThemeModeOption? themeMode,
@@ -78,6 +86,10 @@ class AppSettings {
     bool? ipv6,
     bool? systemProxy,
     bool? perAppProxy,
+    String? serviceBasePath,
+    String? serviceWorkingPath,
+    String? serviceTempPath,
+    String? serviceLocale,
   }) {
     return AppSettings(
       themeMode: themeMode ?? this.themeMode,
@@ -89,6 +101,10 @@ class AppSettings {
       ipv6: ipv6 ?? this.ipv6,
       systemProxy: systemProxy ?? this.systemProxy,
       perAppProxy: perAppProxy ?? this.perAppProxy,
+      serviceBasePath: serviceBasePath ?? this.serviceBasePath,
+      serviceWorkingPath: serviceWorkingPath ?? this.serviceWorkingPath,
+      serviceTempPath: serviceTempPath ?? this.serviceTempPath,
+      serviceLocale: serviceLocale ?? this.serviceLocale,
     );
   }
 
@@ -102,6 +118,10 @@ class AppSettings {
     'ipv6': ipv6,
     'systemProxy': systemProxy,
     'perAppProxy': perAppProxy,
+    'serviceBasePath': serviceBasePath,
+    'serviceWorkingPath': serviceWorkingPath,
+    'serviceTempPath': serviceTempPath,
+    'serviceLocale': serviceLocale,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -122,6 +142,10 @@ class AppSettings {
       ipv6: json['ipv6'] as bool? ?? false,
       systemProxy: json['systemProxy'] as bool? ?? true,
       perAppProxy: json['perAppProxy'] as bool? ?? false,
+      serviceBasePath: (json['serviceBasePath'] as String? ?? '').trim(),
+      serviceWorkingPath: (json['serviceWorkingPath'] as String? ?? '').trim(),
+      serviceTempPath: (json['serviceTempPath'] as String? ?? '').trim(),
+      serviceLocale: (json['serviceLocale'] as String? ?? '').trim(),
     );
   }
 }

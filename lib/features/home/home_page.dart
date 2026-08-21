@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,9 @@ import 'package:go_router/go_router.dart';
 import '../../app/router.dart';
 import '../../core/runtime/core_notifier.dart';
 import '../../core/runtime/core_models.dart';
+import '../../core/runtime/libboxd_service_manager.dart';
+import '../../data/storage/app_storage_paths.dart';
+import '../settings/application/settings_notifier.dart';
 import '../../data/models/ip_info.dart';
 import '../../core/widgets/target_page_layout.dart';
 import '../proxies/application/proxies_notifier.dart';
@@ -26,11 +31,131 @@ class _HomePageState extends ConsumerState<HomePage> {
   IpInfo? _ipInfo;
   bool _ipLoading = false;
   String? _ipError;
+  bool _serviceChecking = true;
+  bool _serviceNeedsInstall = false;
+  bool _serviceCheckFailed = false;
+  bool _serviceInstalling = false;
+  LibboxdServiceStatus? _serviceStatus;
+  String? _serviceInstallError;
+  final _serviceManager = LibboxdServiceManager();
 
   @override
   void initState() {
     super.initState();
     _fetchIpInfo();
+    _checkLibboxdService();
+  }
+
+  Future<void> _checkLibboxdService() async {
+    try {
+      final settings = ref.read(settingsProvider).settings;
+      final paths = await AppStoragePaths.resolve();
+      final result = await _serviceManager.run(
+        'status',
+        basePath: settings.serviceBasePath.isEmpty
+            ? paths.coreDirectory.path
+            : settings.serviceBasePath,
+        // kardianos/service requests START and STOP access even for Status on
+        // Windows, so SCM rejects a non-elevated query.
+        elevated: Platform.isWindows,
+      );
+      if (mounted) {
+        setState(() {
+          _serviceChecking = false;
+          _serviceNeedsInstall = false;
+          _serviceCheckFailed = false;
+          _serviceStatus = result.status;
+          _serviceInstallError = null;
+        });
+      }
+    } on Object catch (error) {
+      if (mounted) {
+        final message = error.toString().toLowerCase();
+        final notInstalled =
+            message.contains('not installed') ||
+            message.contains('does not exist');
+        setState(() {
+          _serviceChecking = false;
+          _serviceNeedsInstall = notInstalled;
+          _serviceCheckFailed = !notInstalled;
+          _serviceStatus = null;
+          _serviceInstallError = error.toString();
+        });
+      }
+    }
+  }
+
+  Future<void> _installLibboxdService() async {
+    setState(() {
+      _serviceInstalling = true;
+      _serviceInstallError = null;
+    });
+    try {
+      final settings = ref.read(settingsProvider).settings;
+      final paths = await AppStoragePaths.resolve();
+      await _serviceManager.run(
+        'install',
+        basePath: settings.serviceBasePath.isEmpty
+            ? paths.coreDirectory.path
+            : settings.serviceBasePath,
+        workingPath: settings.serviceWorkingPath,
+        tempPath: settings.serviceTempPath,
+        locale: settings.serviceLocale,
+      );
+      await _serviceManager.run(
+        'start',
+        basePath: settings.serviceBasePath.isEmpty
+            ? paths.coreDirectory.path
+            : settings.serviceBasePath,
+        workingPath: settings.serviceWorkingPath,
+        tempPath: settings.serviceTempPath,
+        locale: settings.serviceLocale,
+      );
+      if (mounted) {
+        setState(() {
+          _serviceChecking = false;
+          _serviceNeedsInstall = false;
+          _serviceCheckFailed = false;
+          _serviceStatus = LibboxdServiceStatus.running;
+          _serviceInstallError = null;
+        });
+      }
+    } on Object catch (error) {
+      if (mounted) setState(() => _serviceInstallError = error.toString());
+    } finally {
+      if (mounted) setState(() => _serviceInstalling = false);
+    }
+  }
+
+  Future<void> _startLibboxdService() async {
+    setState(() {
+      _serviceInstalling = true;
+      _serviceInstallError = null;
+    });
+    try {
+      final settings = ref.read(settingsProvider).settings;
+      final paths = await AppStoragePaths.resolve();
+      await _serviceManager.run(
+        'start',
+        basePath: settings.serviceBasePath.isEmpty
+            ? paths.coreDirectory.path
+            : settings.serviceBasePath,
+        workingPath: settings.serviceWorkingPath,
+        tempPath: settings.serviceTempPath,
+        locale: settings.serviceLocale,
+      );
+      if (mounted) {
+        setState(() {
+          _serviceStatus = LibboxdServiceStatus.running;
+          _serviceCheckFailed = false;
+          _serviceInstallError = null;
+        });
+      }
+    } on Object catch (error) {
+      if (mounted) setState(() => _serviceInstallError = error.toString());
+    } finally {
+      if (mounted) setState(() => _serviceInstalling = false);
+    }
   }
 
   Future<void> _fetchIpInfo() async {
@@ -70,6 +195,25 @@ class _HomePageState extends ConsumerState<HomePage> {
                           'Monitor your local network service and runtime health.',
                     ),
                     const SizedBox(height: 20),
+                    if (!_serviceChecking &&
+                        (_serviceNeedsInstall ||
+                            _serviceCheckFailed ||
+                            _serviceStatus ==
+                                LibboxdServiceStatus.stopped)) ...[
+                      _ServiceInstallCard(
+                        installing: _serviceInstalling,
+                        installed:
+                            _serviceStatus == LibboxdServiceStatus.stopped,
+                        checkFailed: _serviceCheckFailed,
+                        error: _serviceInstallError,
+                        onAction: _serviceCheckFailed
+                            ? _checkLibboxdService
+                            : _serviceStatus == LibboxdServiceStatus.stopped
+                            ? _startLibboxdService
+                            : _installLibboxdService,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(18),
@@ -122,9 +266,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                               onPressed: core.busy || !core.available
                                   ? null
                                   : () => core.running
-                                        ? ref
-                                              .read(coreProvider.notifier)
-                                              .stop()
+                                        ? ref.read(coreProvider.notifier).stop()
                                         : _connect(),
                               child: Text(
                                 core.busy
@@ -278,5 +420,91 @@ class _HomePageState extends ConsumerState<HomePage> {
           backgroundColor: error ? Theme.of(context).colorScheme.error : null,
         ),
       );
+  }
+}
+
+class _ServiceInstallCard extends StatelessWidget {
+  const _ServiceInstallCard({
+    required this.installing,
+    required this.installed,
+    required this.checkFailed,
+    required this.error,
+    required this.onAction,
+  });
+
+  final bool installing;
+  final bool installed;
+  final bool checkFailed;
+  final String? error;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      color: scheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.admin_panel_settings_outlined,
+                  color: scheme.onSecondaryContainer,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    checkFailed
+                        ? 'Unable to check Libbox service'
+                        : installed
+                        ? 'Libbox service is stopped'
+                        : 'Install the Libbox service',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              (checkFailed ? error : null) ??
+                  (installed
+                      ? 'Start the registered service to make Libbox available.'
+                      : 'Administrator permission is required to register libboxd with the operating system.'),
+              style: TextStyle(color: scheme.onSecondaryContainer),
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: installing ? null : onAction,
+                icon: installing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        checkFailed
+                            ? Icons.refresh
+                            : installed
+                            ? Icons.play_arrow
+                            : Icons.download,
+                      ),
+                label: Text(
+                  installing
+                      ? (installed ? 'Starting…' : 'Installing…')
+                      : checkFailed
+                      ? 'Retry'
+                      : (installed ? 'Start service' : 'Install'),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lithenet/features/proxies/presentation/widgets/proxy_node_tile.dart';
+import 'package:target/features/proxies/presentation/widgets/proxy_node_tile.dart';
 
 void main() {
   testWidgets('shows a country flag with a protocol badge', (tester) async {
