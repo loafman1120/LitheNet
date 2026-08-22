@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,13 +5,13 @@ import 'package:go_router/go_router.dart';
 import '../../app/router.dart';
 import '../../core/runtime/core_notifier.dart';
 import '../../core/runtime/core_models.dart';
-import '../../core/runtime/libboxd_service_manager.dart';
+import '../../core/runtime/target_lib_service_manager.dart';
+import '../../data/models/app_settings.dart' as settings_models;
 import '../../data/storage/app_storage_paths.dart';
 import '../settings/application/settings_notifier.dart';
 import '../../data/models/ip_info.dart';
 import '../../core/widgets/target_page_layout.dart';
 import '../proxies/application/proxies_notifier.dart';
-import 'data/ip_info_service.dart';
 import 'presentation/widgets/connection_error_banner.dart';
 import 'presentation/widgets/current_profile_card.dart';
 import 'presentation/widgets/ip_info_card.dart';
@@ -35,18 +33,18 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _serviceNeedsInstall = false;
   bool _serviceCheckFailed = false;
   bool _serviceInstalling = false;
-  LibboxdServiceStatus? _serviceStatus;
+  TargetLibServiceStatus? _serviceStatus;
   String? _serviceInstallError;
-  final _serviceManager = LibboxdServiceManager();
+  final _serviceManager = TargetLibServiceManager();
 
   @override
   void initState() {
     super.initState();
     _fetchIpInfo();
-    _checkLibboxdService();
+    _checkTargetLibService();
   }
 
-  Future<void> _checkLibboxdService() async {
+  Future<void> _checkTargetLibService() async {
     try {
       final settings = ref.read(settingsProvider).settings;
       final paths = await AppStoragePaths.resolve();
@@ -55,14 +53,15 @@ class _HomePageState extends ConsumerState<HomePage> {
         basePath: settings.serviceBasePath.isEmpty
             ? paths.coreDirectory.path
             : settings.serviceBasePath,
-        // kardianos/service requests START and STOP access even for Status on
-        // Windows, so SCM rejects a non-elevated query.
-        elevated: Platform.isWindows,
+        // Status is queried without elevation (sc.exe on Windows), so this
+        // never triggers a UAC prompt.
+        elevated: false,
       );
       if (mounted) {
         setState(() {
           _serviceChecking = false;
-          _serviceNeedsInstall = false;
+          _serviceNeedsInstall =
+              result.status == TargetLibServiceStatus.notInstalled;
           _serviceCheckFailed = false;
           _serviceStatus = result.status;
           _serviceInstallError = null;
@@ -70,14 +69,10 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     } on Object catch (error) {
       if (mounted) {
-        final message = error.toString().toLowerCase();
-        final notInstalled =
-            message.contains('not installed') ||
-            message.contains('does not exist');
         setState(() {
           _serviceChecking = false;
-          _serviceNeedsInstall = notInstalled;
-          _serviceCheckFailed = !notInstalled;
+          _serviceNeedsInstall = false;
+          _serviceCheckFailed = true;
           _serviceStatus = null;
           _serviceInstallError = error.toString();
         });
@@ -85,7 +80,12 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
-  Future<void> _installLibboxdService() async {
+  Future<void> _refreshTargetLibService() async {
+    TargetLibServiceManager.invalidateStatus();
+    await _checkTargetLibService();
+  }
+
+  Future<void> _installTargetLibService() async {
     setState(() {
       _serviceInstalling = true;
       _serviceInstallError = null;
@@ -93,17 +93,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     try {
       final settings = ref.read(settingsProvider).settings;
       final paths = await AppStoragePaths.resolve();
-      await _serviceManager.run(
-        'install',
-        basePath: settings.serviceBasePath.isEmpty
-            ? paths.coreDirectory.path
-            : settings.serviceBasePath,
-        workingPath: settings.serviceWorkingPath,
-        tempPath: settings.serviceTempPath,
-        locale: settings.serviceLocale,
-      );
-      await _serviceManager.run(
-        'start',
+      await _serviceManager.installAndStart(
         basePath: settings.serviceBasePath.isEmpty
             ? paths.coreDirectory.path
             : settings.serviceBasePath,
@@ -116,7 +106,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           _serviceChecking = false;
           _serviceNeedsInstall = false;
           _serviceCheckFailed = false;
-          _serviceStatus = LibboxdServiceStatus.running;
+          _serviceStatus = TargetLibServiceStatus.running;
           _serviceInstallError = null;
         });
       }
@@ -127,7 +117,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     }
   }
 
-  Future<void> _startLibboxdService() async {
+  Future<void> _startTargetLibService() async {
     setState(() {
       _serviceInstalling = true;
       _serviceInstallError = null;
@@ -146,7 +136,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       );
       if (mounted) {
         setState(() {
-          _serviceStatus = LibboxdServiceStatus.running;
+          _serviceStatus = TargetLibServiceStatus.running;
           _serviceCheckFailed = false;
           _serviceInstallError = null;
         });
@@ -164,7 +154,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       _ipError = null;
     });
     try {
-      final info = await IpInfoService.instance.fetch();
+      final info = await ref.read(coreGatewayProvider).fetchIpInfo();
       if (mounted) setState(() => _ipInfo = info);
     } catch (e) {
       if (mounted) setState(() => _ipError = e.toString());
@@ -199,18 +189,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                         (_serviceNeedsInstall ||
                             _serviceCheckFailed ||
                             _serviceStatus ==
-                                LibboxdServiceStatus.stopped)) ...[
+                                TargetLibServiceStatus.stopped)) ...[
                       _ServiceInstallCard(
                         installing: _serviceInstalling,
                         installed:
-                            _serviceStatus == LibboxdServiceStatus.stopped,
+                            _serviceStatus == TargetLibServiceStatus.stopped,
                         checkFailed: _serviceCheckFailed,
                         error: _serviceInstallError,
                         onAction: _serviceCheckFailed
-                            ? _checkLibboxdService
-                            : _serviceStatus == LibboxdServiceStatus.stopped
-                            ? _startLibboxdService
-                            : _installLibboxdService,
+                            ? _refreshTargetLibService
+                            : _serviceStatus == TargetLibServiceStatus.stopped
+                            ? _startTargetLibService
+                            : _installTargetLibService,
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -260,6 +250,34 @@ class _HomePageState extends ConsumerState<HomePage> {
                                         : 'Start the service to begin routing traffic.')
                                   : 'The local core is unavailable on this platform.',
                               style: theme.textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Proxy mode',
+                              style: theme.textTheme.labelLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            SegmentedButton<settings_models.ProxyMode>(
+                              segments: const [
+                                ButtonSegment(
+                                  value: settings_models.ProxyMode.mixed,
+                                  icon: Icon(Icons.lan_outlined),
+                                  label: Text('Mixed'),
+                                ),
+                                ButtonSegment(
+                                  value: settings_models.ProxyMode.tun,
+                                  icon: Icon(Icons.vpn_lock_outlined),
+                                  label: Text('TUN'),
+                                ),
+                              ],
+                              selected: {core.settings.proxyMode},
+                              onSelectionChanged: core.busy
+                                  ? null
+                                  : (selected) {
+                                      if (selected.isNotEmpty) {
+                                        _changeProxyMode(selected.first);
+                                      }
+                                    },
                             ),
                             const SizedBox(height: 14),
                             FilledButton(
@@ -349,6 +367,20 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
       );
+  }
+
+  Future<void> _changeProxyMode(settings_models.ProxyMode mode) async {
+    final current = ref.read(settingsProvider).settings;
+    if (current.proxyMode == mode) return;
+    final settingsNotifier = ref.read(settingsProvider.notifier);
+    settingsNotifier.setProxyMode(mode);
+    final next = ref.read(settingsProvider).settings;
+    await ref.read(coreProvider.notifier).configure(next);
+    if (!mounted) return;
+    final core = ref.read(coreProvider);
+    if (core.lifecycle == CoreLifecycle.failed) {
+      _showMessage(core.message, error: true);
+    }
   }
 
   Future<void> _testProxies() async {
@@ -471,8 +503,8 @@ class _ServiceInstallCard extends StatelessWidget {
             Text(
               (checkFailed ? error : null) ??
                   (installed
-                      ? 'Start the registered service to make Libbox available.'
-                      : 'Administrator permission is required to register libboxd with the operating system.'),
+                      ? 'Start the registered service to make targetlib available.'
+                      : 'Administrator permission is required to register targetlib with the operating system.'),
               style: TextStyle(color: scheme.onSecondaryContainer),
             ),
             const SizedBox(height: 12),

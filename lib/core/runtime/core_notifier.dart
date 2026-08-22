@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/app_settings.dart';
-import '../../data/models/log_entry.dart';
 import '../../data/models/proxy_group.dart';
 import '../../data/models/proxy_node.dart';
 import '../../features/settings/application/settings_notifier.dart';
@@ -26,7 +25,6 @@ class CoreState {
     this.traffic = TrafficSnapshot.zero,
     this.connections = const [],
     this.proxyGroups = const [],
-    this.logs = const [],
     this.busy = false,
     this.available = false,
     this.backendName = 'Libbox',
@@ -38,7 +36,6 @@ class CoreState {
   final TrafficSnapshot traffic;
   final List<CoreConnection> connections;
   final List<ProxyGroup> proxyGroups;
-  final List<LogEntry> logs;
   final bool busy;
   final bool available;
   final String backendName;
@@ -61,7 +58,6 @@ class CoreState {
     TrafficSnapshot? traffic,
     List<CoreConnection>? connections,
     List<ProxyGroup>? proxyGroups,
-    List<LogEntry>? logs,
     bool? busy,
   }) {
     return CoreState(
@@ -71,7 +67,6 @@ class CoreState {
       traffic: traffic ?? this.traffic,
       connections: connections ?? this.connections,
       proxyGroups: proxyGroups ?? this.proxyGroups,
-      logs: logs ?? this.logs,
       busy: busy ?? this.busy,
       available: available,
       backendName: backendName,
@@ -252,7 +247,6 @@ class CoreNotifier extends Notifier<CoreState> {
         traffic: state.traffic,
         connections: state.connections,
         proxyGroups: state.proxyGroups,
-        logs: state.logs,
       ),
     );
   }
@@ -264,7 +258,6 @@ class CoreNotifier extends Notifier<CoreState> {
       traffic: snapshot.traffic,
       connections: snapshot.connections,
       proxyGroups: snapshot.proxyGroups,
-      logs: snapshot.logs,
     );
   }
 }

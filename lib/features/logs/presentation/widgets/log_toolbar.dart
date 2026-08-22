@@ -1,6 +1,5 @@
 import 'package:material_ui/material_ui.dart';
-
-import '../../../../data/models/log_entry.dart';
+import 'package:talker/talker.dart';
 
 class LogToolbar extends StatelessWidget {
   const LogToolbar({

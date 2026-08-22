@@ -13,22 +13,12 @@ class AppStoragePaths {
   File get settingsFile =>
       File('${root.path}${Platform.pathSeparator}settings.json');
 
-  File get subscriptionsFile =>
-      File('${root.path}${Platform.pathSeparator}subscriptions.json');
-
-  Directory get profilesDirectory =>
-      Directory('${root.path}${Platform.pathSeparator}profiles');
-
   Directory get coreDirectory =>
       Directory('${root.path}${Platform.pathSeparator}core');
 
   /// Persistent cache file for sing-box / libbox cache_file experimental.
   File get cacheFile =>
       File('${coreDirectory.path}${Platform.pathSeparator}cache.db');
-
-  /// Persistent application log directory.
-  Directory get logsDirectory =>
-      Directory('${root.path}${Platform.pathSeparator}logs');
 
   static Future<AppStoragePaths> resolve() async {
     final root = await _resolveRootDirectory();
@@ -46,8 +36,6 @@ class AppStoragePaths {
   Future<void> ensureCreated() async {
     await root.create(recursive: true);
     await coreDirectory.create(recursive: true);
-    await profilesDirectory.create(recursive: true);
-    await logsDirectory.create(recursive: true);
   }
 
   /// Resolves the canonical root using `path_provider` as primary source.

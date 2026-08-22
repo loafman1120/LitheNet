@@ -10,9 +10,6 @@ import '../data/models/app_settings.dart';
 import '../features/settings/application/settings_notifier.dart';
 import '../features/settings/data/settings_store.dart';
 import '../features/subscriptions/application/subscriptions_notifier.dart';
-import '../features/subscriptions/data/profile_store.dart';
-import '../features/subscriptions/data/subscription_list_store.dart';
-import '../features/subscriptions/data/subscriptions_repository.dart';
 import 'app_identity.dart';
 import 'desktop_tray_controller.dart';
 import 'router.dart';
@@ -23,17 +20,11 @@ class TargetApp extends StatelessWidget {
     this.coreGateway,
     this.initialSettings,
     this.settingsStore,
-    this.subscriptionListStore,
-    this.profileStore,
-    this.subscriptionRepository,
   });
 
   final CoreGateway? coreGateway;
   final AppSettings? initialSettings;
   final AppSettingsStore? settingsStore;
-  final SubscriptionListStore? subscriptionListStore;
-  final AtomicProfileStore? profileStore;
-  final SubscriptionRepository? subscriptionRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -45,16 +36,6 @@ class TargetApp extends StatelessWidget {
           initialSettingsProvider.overrideWithValue(initialSettings!),
         if (settingsStore != null)
           settingsStoreProvider.overrideWithValue(settingsStore!),
-        if (subscriptionListStore != null)
-          subscriptionListStoreProvider.overrideWithValue(
-            subscriptionListStore!,
-          ),
-        if (profileStore != null)
-          profileStoreProvider.overrideWithValue(profileStore!),
-        if (subscriptionRepository != null)
-          subscriptionRepositoryProvider.overrideWithValue(
-            subscriptionRepository!,
-          ),
       ],
       child: const _TargetAppView(),
     );

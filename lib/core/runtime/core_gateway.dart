@@ -1,4 +1,5 @@
 import '../../data/models/app_settings.dart';
+import '../../data/models/ip_info.dart';
 import '../../data/models/proxy_node.dart';
 import 'core_models.dart';
 
@@ -22,6 +23,10 @@ abstract class CoreGateway {
   Future<int> closeAllConnections();
   Future<int> refreshRuleSets();
   Future<void> clearLogs();
+
+  /// Queries the egress IP geolocation through the backend.
+  Future<IpInfo> fetchIpInfo();
+
   Future<void> dispose();
 }
 
@@ -88,6 +93,9 @@ class UnavailableCoreGateway implements CoreGateway {
 
   @override
   Future<void> clearLogs() async {}
+
+  @override
+  Future<IpInfo> fetchIpInfo() => _unavailable();
 
   @override
   Future<void> dispose() async {}

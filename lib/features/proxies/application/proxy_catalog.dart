@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/proxy_group.dart';
 import '../../../data/models/proxy_node.dart';
-import '../../subscriptions/data/subscription_parser.dart';
 
 /// Immutable snapshot of the parsed proxy catalog.
 @immutable
@@ -26,15 +25,15 @@ class ProxyCatalogNotifier extends Notifier<ProxyCatalogState> {
     state = const ProxyCatalogState();
   }
 
-  void replaceFromProfile(ParsedProfile profile) {
-    if (profile.nodes.isEmpty) {
+  void replaceNodes(List<ProxyNode> sourceNodes) {
+    if (sourceNodes.isEmpty) {
       return;
     }
 
     final previousSelections = {
       for (final group in state.groups) group.id: group.selectedNodeId,
     };
-    final nodes = _mergeLatency(profile.nodes);
+    final nodes = _mergeLatency(sourceNodes);
     final nextGroups = <ProxyGroup>[
       ProxyGroup(
         id: 'all',

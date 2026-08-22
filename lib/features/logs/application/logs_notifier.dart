@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:talker/talker.dart';
 
 import '../../../core/logging/app_logger.dart';
 import '../../../core/runtime/core_notifier.dart';
-import '../../../data/models/log_entry.dart';
 
 /// Immutable snapshot of the logs workspace.
 @immutable
@@ -17,16 +17,16 @@ class LogsState {
     this.paused = false,
   });
 
-  final List<LogEntry> entries;
+  final List<TalkerData> entries;
   final LogLevel? levelFilter;
   final String searchQuery;
   final bool paused;
 
-  List<LogEntry> get filteredEntries {
+  List<TalkerData> get filteredEntries {
     var list = entries;
 
     if (levelFilter != null) {
-      list = list.where((e) => e.level == levelFilter).toList();
+      list = list.where((e) => e.logLevel == levelFilter).toList();
     }
 
     if (searchQuery.isNotEmpty) {
@@ -34,8 +34,8 @@ class LogsState {
       list = list
           .where(
             (e) =>
-                e.message.toLowerCase().contains(q) ||
-                e.source.toLowerCase().contains(q),
+                (e.message ?? '').toLowerCase().contains(q) ||
+                (e.title ?? '').toLowerCase().contains(q),
           )
           .toList();
     }
@@ -44,7 +44,7 @@ class LogsState {
   }
 
   LogsState copyWith({
-    List<LogEntry>? entries,
+    List<TalkerData>? entries,
     LogLevel? levelFilter,
     String? searchQuery,
     bool? paused,
@@ -62,18 +62,15 @@ class LogsState {
 class LogsNotifier extends Notifier<LogsState> {
   static const _maxEntries = 2000;
 
-  StreamSubscription<LogEntry>? _appLogSubscription;
-  Timer? _demoTimer;
-  int _demoCounter = 0;
+  StreamSubscription<TalkerData>? _subscription;
 
   @override
   LogsState build() {
-    _appLogSubscription = AppLogger.entriesStream.listen(addEntry);
+    _subscription = AppLogger.talker.stream.listen(addEntry);
     ref.onDispose(() {
-      unawaited(_appLogSubscription?.cancel());
-      _demoTimer?.cancel();
+      unawaited(_subscription?.cancel());
     });
-    return LogsState(entries: List.of(AppLogger.entries));
+    return LogsState(entries: List.of(AppLogger.talker.history));
   }
 
   void setLevelFilter(LogLevel? level) {
@@ -86,7 +83,7 @@ class LogsNotifier extends Notifier<LogsState> {
 
   void togglePause() {
     final paused = !state.paused;
-    final entries = paused ? state.entries : List.of(AppLogger.entries);
+    final entries = paused ? state.entries : List.of(AppLogger.talker.history);
     state = state.copyWith(paused: paused, entries: entries);
   }
 
@@ -96,7 +93,7 @@ class LogsNotifier extends Notifier<LogsState> {
     ref.read(coreProvider.notifier).clearLogs();
   }
 
-  void addEntry(LogEntry entry) {
+  void addEntry(TalkerData entry) {
     if (state.paused) return;
     final entries = [...state.entries, entry];
     if (entries.length > _maxEntries) {
@@ -108,12 +105,13 @@ class LogsNotifier extends Notifier<LogsState> {
   String exportLogs({bool sanitize = false}) {
     final buffer = StringBuffer();
     for (final entry in state.filteredEntries) {
-      var msg = entry.message;
+      var msg = entry.message ?? '';
       if (sanitize) {
         msg = _sanitize(msg);
       }
+      final level = (entry.logLevel?.name ?? 'log').toUpperCase();
       buffer.writeln(
-        '${entry.timeString} [${entry.level.label}] ${entry.source} $msg',
+        '${formatLogTime(entry.time)} [$level] ${entry.title ?? ''} $msg',
       );
     }
     return buffer.toString();
@@ -131,39 +129,14 @@ class LogsNotifier extends Notifier<LogsState> {
           (m) => 'token=[HIDDEN]',
         );
   }
+}
 
-  void startDemoLogs() {
-    _demoTimer?.cancel();
-    final sources = ['core', 'dns', 'router', 'inbound', 'outbound'];
-    final messages = [
-      'Connection established to remote server',
-      'DNS query resolved: example.com -> 1.2.3.4',
-      'Route matched: domain suffix .com -> proxy',
-      'Connection closed: bytes sent 1024, received 4096',
-      'TLS handshake completed',
-      'SOCKS5 connection from 127.0.0.1:54321',
-      'Mixed proxy listening on 127.0.0.1:2080',
-      'Config reloaded successfully',
-    ];
-    final levels = LogLevel.values;
-
-    _demoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      _demoCounter++;
-      addEntry(
-        LogEntry(
-          time: DateTime.now(),
-          level: levels[_demoCounter % levels.length],
-          source: sources[_demoCounter % sources.length],
-          message: messages[_demoCounter % messages.length],
-        ),
-      );
-    });
-  }
-
-  void stopDemoLogs() {
-    _demoTimer?.cancel();
-    _demoTimer = null;
-  }
+/// Formats a log timestamp as `HH:mm:ss`.
+String formatLogTime(DateTime time) {
+  final h = time.hour.toString().padLeft(2, '0');
+  final m = time.minute.toString().padLeft(2, '0');
+  final s = time.second.toString().padLeft(2, '0');
+  return '$h:$m:$s';
 }
 
 final logsProvider = NotifierProvider<LogsNotifier, LogsState>(

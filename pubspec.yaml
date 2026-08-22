@@ -8,25 +8,22 @@ environment:
   flutter: ">=3.44.0"
 
 dependencies:
-  crypto: ^3.0.7
   fixnum: ^1.1.1
   flutter:
     sdk: flutter
   flutter_riverpod: ^3.3.2
-  flutter_secure_storage: ^11.0.0
   flutter_svg: ^2.3.0
   go_router: ^17.3.0
   grpc: ^5.1.0
   lottie: ^3.5.1
-  logger: ^2.7.0
   package_info_plus: ^10.2.0
   path_provider: ^2.1.6
   protobuf: ^6.0.0
   tray_manager: ^0.5.3
   window_manager: ^0.5.2
-  yaml: ^3.1.3
 
   material_ui: any
+  talker: ^5.1.20
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -36,4 +33,3 @@ flutter:
   uses-material-design: true
   assets:
     - windows/runner/resources/app_icon.ico
-    - macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_32.png

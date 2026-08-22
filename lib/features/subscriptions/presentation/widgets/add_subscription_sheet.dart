@@ -2,7 +2,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/app_spacing.dart';
-import '../../data/subscription_url_normalizer.dart';
 
 class AddSubscriptionSheet extends StatefulWidget {
   const AddSubscriptionSheet({super.key});
@@ -15,7 +14,6 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
   final _urlController = TextEditingController();
   final _nameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  final _normalizer = const SubscriptionUrlNormalizer();
 
   @override
   void dispose() {
@@ -62,9 +60,6 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
                     if (value == null || value.trim().isEmpty) {
                       return 'URL is required';
                     }
-                    if (!_normalizer.isValid(value)) {
-                      return 'Invalid URL';
-                    }
                     return null;
                   },
                 ),
@@ -108,10 +103,10 @@ class _AddSubscriptionSheetState extends State<AddSubscriptionSheet> {
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    final normalizedUrl = _normalizer.normalize(_urlController.text);
-    if (normalizedUrl == null) return;
+    // The backend normalizes raw input (nested links, encoding, decorations);
+    // the client only validates non-empty input.
     Navigator.of(context).pop({
-      'url': normalizedUrl,
+      'url': _urlController.text.trim(),
       if (_nameController.text.trim().isNotEmpty)
         'name': _nameController.text.trim(),
     });

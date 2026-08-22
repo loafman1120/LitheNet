@@ -10,7 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:protobuf/well_known_types/google/protobuf/empty.pb.dart';
 
 import '../../data/models/app_settings.dart';
-import '../../data/models/log_entry.dart';
+import '../../data/models/ip_info.dart';
 import '../../data/models/proxy_group.dart';
 import '../../data/models/proxy_node.dart';
 import '../../data/storage/app_storage_paths.dart';
@@ -20,17 +20,15 @@ import 'core_gateway.dart';
 import 'core_models.dart';
 import 'grpc/generated/started_service.pb.dart' as daemon_pb;
 import 'grpc/generated/started_service.pbgrpc.dart' hide LogLevel;
-import 'grpc/generated/libbox/v1/manager.pb.dart' as manager_pb;
-import 'grpc/generated/libbox/v1/manager.pbgrpc.dart';
-import 'libbox_config_builder.dart';
-import 'libboxd_service_manager.dart';
+import 'grpc/generated/api/TargetLib/targetlib.pb.dart' as targetlib_pb;
+import 'grpc/generated/api/TargetLib/targetlib.pbgrpc.dart' hide ProxyMode;
+import 'subscription_gateway.dart';
+import 'target_lib_service_manager.dart';
 
-class LibboxGateway implements CoreGateway {
-  LibboxGateway({
-    AppStoragePaths? storagePaths,
-    Directory? workingDirectory,
-  })  : _injectedPaths = storagePaths,
-        _workingDirectory = workingDirectory;
+class LibboxGateway implements CoreGateway, SubscriptionGateway {
+  LibboxGateway({AppStoragePaths? storagePaths, Directory? workingDirectory})
+    : _injectedPaths = storagePaths,
+      _workingDirectory = workingDirectory;
 
   /// Test-only override. When provided, this directory is used as the
   /// isolated AppStoragePaths root so tests never touch the real
@@ -43,7 +41,8 @@ class LibboxGateway implements CoreGateway {
 
   final StreamController<CoreSnapshot> _snapshots =
       StreamController<CoreSnapshot>.broadcast();
-  final List<LogEntry> _logs = [];
+  final StreamController<void> _subscriptionChanges =
+      StreamController<void>.broadcast();
   final Map<String, ProxyGroup> _groups = {};
   final Map<String, CoreConnection> _connections = {};
   final Map<String, int> _latencies = {};
@@ -52,10 +51,9 @@ class LibboxGateway implements CoreGateway {
   final List<StreamSubscription<Object?>> _subscriptions = [];
 
   AppSettings _settings = const AppSettings();
-  List<ProxyNode> _proxyNodes = const [];
   String? _rawConfig;
-  final LibboxdServiceManager _serviceManager = LibboxdServiceManager();
-  LibboxManagerClient? _manager;
+  final TargetLibServiceManager _serviceManager = TargetLibServiceManager();
+  TargetLibClient? _manager;
   Process? _daemonProcess;
   ClientChannel? _channel;
   StartedServiceClient? _daemon;
@@ -80,18 +78,22 @@ class LibboxGateway implements CoreGateway {
   Stream<CoreSnapshot> get snapshots => _snapshots.stream;
 
   @override
+  Stream<void> get subscriptionChanges => _subscriptionChanges.stream;
+
+  @override
   Future<CoreSnapshot> current() async {
     final manager = _manager;
     if (manager == null) return _current;
     final state = await manager.getState(Empty(), options: _callOptions);
     final lifecycle = switch (state.state) {
-      manager_pb.ServiceStateType.SERVICE_STATE_RUNNING =>
+      targetlib_pb.ServiceStateType.SERVICE_STATE_RUNNING =>
         CoreLifecycle.running,
-      manager_pb.ServiceStateType.SERVICE_STATE_STARTING =>
+      targetlib_pb.ServiceStateType.SERVICE_STATE_STARTING =>
         CoreLifecycle.starting,
-      manager_pb.ServiceStateType.SERVICE_STATE_STOPPING =>
+      targetlib_pb.ServiceStateType.SERVICE_STATE_STOPPING =>
         CoreLifecycle.stopping,
-      manager_pb.ServiceStateType.SERVICE_STATE_FAILED => CoreLifecycle.failed,
+      targetlib_pb.ServiceStateType.SERVICE_STATE_FAILED =>
+        CoreLifecycle.failed,
       _ => CoreLifecycle.stopped,
     };
     _publish(
@@ -110,46 +112,21 @@ class LibboxGateway implements CoreGateway {
   @override
   Future<void> configure(AppSettings settings) => _serialize(() async {
     _settings = settings;
-    final config = await _buildConfig();
-    final manager = _manager;
-    if (manager != null) {
-      final check = await manager.checkConfig(
-        manager_pb.ConfigRequest(content: config),
-        options: _callOptions,
-      );
-      if (!check.valid) throw StateError(check.formattedError);
-      await manager.reload(
-        manager_pb.ReloadRequest(config: config),
-        options: _callOptions,
-      );
-    }
+    await _reloadIfRunning();
   });
 
   @override
   Future<void> setProxyNodes(List<ProxyNode> nodes) => _serialize(() async {
-    _proxyNodes = List.unmodifiable(nodes);
     _rawConfig = null;
-    final manager = _manager;
-    if (manager != null) {
-      final config = await _buildConfig();
-      await manager.reload(
-        manager_pb.ReloadRequest(config: config),
-        options: _callOptions,
-      );
-    }
+    await _clearActiveSubscription();
+    await _reloadIfRunning();
   });
 
   @override
   Future<void> setRawConfig(String? config) => _serialize(() async {
     _rawConfig = config?.trim().isEmpty == true ? null : config?.trim();
-    final manager = _manager;
-    if (manager != null) {
-      final next = await _buildConfig();
-      await manager.reload(
-        manager_pb.ReloadRequest(config: next),
-        options: _callOptions,
-      );
-    }
+    if (_rawConfig != null) await _clearActiveSubscription();
+    await _reloadIfRunning();
   });
 
   @override
@@ -157,7 +134,6 @@ class LibboxGateway implements CoreGateway {
 
   Future<void> _startLocked() async {
     _ensureAvailable();
-    if (_manager != null) return;
     _publish(
       _copyCurrent(
         lifecycle: CoreLifecycle.starting,
@@ -165,22 +141,23 @@ class LibboxGateway implements CoreGateway {
       ),
     );
     await _ensureProxyPortAvailable();
-    await _ensureCore();
-
-    final config = await _buildConfig();
     try {
-      await _connectCommandServer();
+      await _ensureConnected();
       final manager = _manager!;
+      final state = await manager.getState(Empty(), options: _callOptions);
+      if (state.state == targetlib_pb.ServiceStateType.SERVICE_STATE_RUNNING) {
+        return;
+      }
+      final config = await _buildConfig();
       final check = await manager.checkConfig(
-        manager_pb.ConfigRequest(content: config),
+        targetlib_pb.ConfigRequest(content: config),
         options: _callOptions,
       );
       if (!check.valid) throw StateError(check.formattedError);
       await manager.start(
-        manager_pb.StartRequest(config: config),
+        targetlib_pb.StartRequest(config: config),
         options: _callOptions,
       );
-      _subscribeCommandStreams();
       _publish(
         _copyCurrent(
           lifecycle: CoreLifecycle.running,
@@ -188,44 +165,250 @@ class LibboxGateway implements CoreGateway {
         ),
       );
     } on Object {
-      await _shutdownTransport();
-      await _shutdownTransport();
       rethrow;
     }
   }
 
   Future<String> _buildConfig() async {
-    final cacheFilePath = await _resolveCacheFilePath();
-    final raw = _rawConfig;
-    if (raw == null) {
-      return LibboxConfigBuilder.build(
-        _settings,
-        proxyNodes: _proxyNodes,
-        cacheFilePath: cacheFilePath,
-      );
+    final manager = _manager;
+    if (manager == null) {
+      throw const CoreUnavailableException('TargetLib is not connected.');
     }
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map) return raw;
-    final config = Map<String, dynamic>.from(decoded);
-    // The app owns the inbound surface; never inherit subscription inbounds
-    // (airports ship tun inbounds that fail without admin on Windows).
-    config['inbounds'] = LibboxConfigBuilder.buildInbounds(_settings);
-    LibboxConfigBuilder.migrateLegacyTransports(config);
-    LibboxConfigBuilder.migrateLegacyInboundFields(config);
-    LibboxConfigBuilder.migrateLegacyDnsOutbound(config);
-    LibboxConfigBuilder.normalizeAnyTlsAlpn(config);
-    final experimental = config['experimental'] is Map
-        ? Map<String, dynamic>.from(config['experimental'] as Map)
-        : <String, dynamic>{};
-    experimental['cache_file'] = {
-      if (experimental['cache_file'] is Map)
-        ...Map<String, dynamic>.from(experimental['cache_file'] as Map),
-      'enabled': true,
-      'path': singBoxWindowsPath(cacheFilePath),
-    };
-    config['experimental'] = experimental;
-    return jsonEncode(config);
+    final cacheFilePath = await _resolveCacheFilePath();
+    final request = targetlib_pb.BuildConfigRequest(
+      settings: targetlib_pb.BuildConfigSettings(
+        listenAddress: _settings.listenAddress,
+        mixedPort: _settings.mixedPort,
+        proxyMode: _settings.proxyMode == ProxyMode.tun
+            ? targetlib_pb.ProxyMode.PROXY_MODE_TUN
+            : targetlib_pb.ProxyMode.PROXY_MODE_MIXED,
+        systemProxy: _settings.systemProxy,
+        ipv6: _settings.ipv6,
+        cacheFilePath: cacheFilePath,
+      ),
+    );
+    final rawConfig = _rawConfig;
+    if (rawConfig != null) {
+      request.rawConfig = utf8.encode(rawConfig);
+    }
+    // Without an explicit source the backend builds from its persisted
+    // active subscription and falls back to a default direct-only config.
+    final result = await manager.buildConfig(request, options: _callOptions);
+    return utf8.decode(result.content);
   }
+
+  Future<void> _reloadIfRunning() async {
+    final manager = _manager;
+    if (manager == null) return;
+    final state = await manager.getState(Empty(), options: _callOptions);
+    if (state.state != targetlib_pb.ServiceStateType.SERVICE_STATE_RUNNING) {
+      return;
+    }
+    final config = await _buildConfig();
+    await manager.reload(
+      targetlib_pb.ReloadRequest(config: config),
+      options: _callOptions,
+    );
+  }
+
+  @override
+  Future<List<RuntimeSubscription>> listSubscriptions() => _serialize(() async {
+    await _ensureConnected();
+    final result = await _manager!.listSubscriptions(
+      Empty(),
+      options: _callOptions,
+    );
+    return result.subscriptions.map(_runtimeSubscription).toList();
+  });
+
+  @override
+  Future<RuntimeSubscription> addSubscription({
+    required String id,
+    required String name,
+    required String url,
+    required bool enabled,
+    required bool autoUpdate,
+    required int updateIntervalSeconds,
+    required Map<String, String> headers,
+  }) => _serialize(() async {
+    await _ensureConnected();
+    final view = await _manager!.addSubscription(
+      targetlib_pb.AddSubscriptionRequest(
+        id: id,
+        name: name,
+        url: url,
+        enabled: enabled,
+        autoUpdate: autoUpdate,
+        updateIntervalSeconds: Int64(updateIntervalSeconds),
+        headers: headers.entries,
+      ),
+      options: _callOptions,
+    );
+    return _runtimeSubscription(view);
+  });
+
+  @override
+  Future<void> removeSubscription(String id) => _serialize(() async {
+    await _ensureConnected();
+    await _manager!.removeSubscription(
+      targetlib_pb.SubscriptionId(id: id),
+      options: _callOptions,
+    );
+    // The backend clears its persisted active state when the active
+    // subscription is removed; just reload to pick up the fallback.
+    await _reloadIfRunning();
+  });
+
+  @override
+  Future<RuntimeSubscription> renameSubscription(String id, String name) =>
+      _serialize(() async {
+        await _ensureConnected();
+        final view = await _manager!.renameSubscription(
+          targetlib_pb.RenameSubscriptionRequest(id: id, name: name),
+          options: _callOptions,
+        );
+        return _runtimeSubscription(view);
+      });
+
+  @override
+  Future<RuntimeSubscription> setSubscriptionEnabled(String id, bool enabled) =>
+      _serialize(() async {
+        await _ensureConnected();
+        final view = await _manager!.setSubscriptionEnabled(
+          targetlib_pb.SetSubscriptionEnabledRequest(id: id, enabled: enabled),
+          options: _callOptions,
+        );
+        return _runtimeSubscription(view);
+      });
+
+  @override
+  Future<RuntimeSubscriptionUpdate> updateSubscription(String id) =>
+      _serialize(() async {
+        await _ensureConnected();
+        final result = await _manager!.updateSubscription(
+          targetlib_pb.SubscriptionId(id: id),
+          options: _callOptions,
+        );
+        final activeId = await _activeSubscriptionIdLocked();
+        if (activeId == id) await _reloadIfRunning();
+        return RuntimeSubscriptionUpdate(
+          subscription: _runtimeSubscription(result.subscription),
+          changed: result.changed,
+          notModified: result.notModified,
+          duration: Duration(milliseconds: result.durationMilliseconds.toInt()),
+        );
+      });
+
+  @override
+  Future<void> activateSubscription(String? id) => _serialize(() async {
+    await _ensureConnected();
+    final normalized = id?.trim().isEmpty == true ? null : id?.trim();
+    await _manager!.setActiveSubscription(
+      targetlib_pb.SetActiveSubscriptionRequest(id: normalized ?? ''),
+      options: _callOptions,
+    );
+    if (normalized != null) _rawConfig = null;
+    await _reloadIfRunning();
+  });
+
+  @override
+  Future<String?> activeSubscriptionId() =>
+      _serialize(_activeSubscriptionIdLocked);
+
+  Future<String?> _activeSubscriptionIdLocked() async {
+    final manager = _manager;
+    if (manager == null) return null;
+    final response = await manager.getActiveSubscription(
+      Empty(),
+      options: _callOptions,
+    );
+    return response.id.isEmpty ? null : response.id;
+  }
+
+  Future<void> _clearActiveSubscription() async {
+    final manager = _manager;
+    if (manager == null) return;
+    await manager.setActiveSubscription(
+      targetlib_pb.SetActiveSubscriptionRequest(),
+      options: _callOptions,
+    );
+  }
+
+  /// Queries the egress IP geolocation through the TargetLib backend.
+  @override
+  Future<IpInfo> fetchIpInfo() => _serialize(() async {
+    await _ensureConnected();
+    final response = await _manager!.getIpInfo(
+      Empty(),
+      options: _callOptions,
+    );
+    return IpInfo(
+      ip: response.ip,
+      country: response.country,
+      countryCode: response.countryCode,
+      city: response.city,
+      isp: response.isp,
+      org: response.org,
+      asName: response.asName,
+    );
+  });
+
+  RuntimeSubscription _runtimeSubscription(targetlib_pb.SubscriptionView view) {
+    return RuntimeSubscription(
+      id: view.id,
+      name: view.name,
+      source: view.source,
+      enabled: view.enabled,
+      autoUpdate: view.autoUpdate,
+      updateIntervalSeconds: view.updateIntervalSeconds.toInt(),
+      status: switch (view.status) {
+        targetlib_pb.SubscriptionStatus.SUBSCRIPTION_STATUS_UPDATING =>
+          RuntimeSubscriptionStatus.updating,
+        targetlib_pb.SubscriptionStatus.SUBSCRIPTION_STATUS_READY =>
+          RuntimeSubscriptionStatus.ready,
+        targetlib_pb.SubscriptionStatus.SUBSCRIPTION_STATUS_FAILED =>
+          RuntimeSubscriptionStatus.failed,
+        _ => RuntimeSubscriptionStatus.idle,
+      },
+      nodes: [
+        for (final node in view.nodes)
+          ProxyNode(
+            id: node.id,
+            name: node.name,
+            type: node.type,
+            isAvailable:
+                node.phase ==
+                targetlib_pb
+                    .SubscriptionNodePhase
+                    .SUBSCRIPTION_NODE_PHASE_READY,
+            metadata: {
+              'server': node.server,
+              'port': node.port,
+              'group': node.group,
+              'groups': node.groups.toList(),
+              if (node.errorMessage.isNotEmpty) 'error': node.errorMessage,
+            },
+          ),
+      ],
+      errorCode: view.errorCode.isEmpty ? null : view.errorCode,
+      errorMessage: view.errorMessage.isEmpty ? null : view.errorMessage,
+      updatedAt: _dateFromUnixMilliseconds(view.updatedAtUnixMs.toInt()),
+      expiresAt: _dateFromUnixMilliseconds(view.expiresAtUnixMs.toInt()),
+      uploadBytes: view.uploadBytes.toInt(),
+      downloadBytes: view.downloadBytes.toInt(),
+      totalBytes: view.totalBytes > Int64.ZERO ? view.totalBytes.toInt() : null,
+      title: view.title.isEmpty ? null : view.title,
+      webPageUrl: view.webPageUrl.isEmpty ? null : view.webPageUrl,
+      supportUrl: view.supportUrl.isEmpty ? null : view.supportUrl,
+      movedPermanentlyTo: view.movedPermanentlyTo.isEmpty
+          ? null
+          : view.movedPermanentlyTo,
+    );
+  }
+
+  DateTime? _dateFromUnixMilliseconds(int value) => value <= 0
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
 
   @override
   Future<void> stop() => _serialize(_stopLocked);
@@ -248,7 +431,6 @@ class LibboxGateway implements CoreGateway {
       ),
     );
     await manager.stop(Empty(), options: _callOptions);
-    await _shutdownTransport();
     _groups.clear();
     _connections.clear();
     _publish(
@@ -313,20 +495,20 @@ class LibboxGateway implements CoreGateway {
 
   @override
   Future<void> clearLogs() async {
-    _logs.clear();
     final daemon = _daemon;
     if (daemon != null) {
       await daemon.clearLogs(Empty(), options: _callOptions);
     }
-    _publish(_copyCurrent(logs: const []));
   }
 
   @override
   Future<void> dispose() => _serialize(() async {
     if (_disposed) return;
     await _stopLocked();
+    await _shutdownTransport();
     _disposed = true;
     await _snapshots.close();
+    await _subscriptionChanges.close();
   });
 
   // ---------------------------------------------------------------------------
@@ -375,8 +557,12 @@ class LibboxGateway implements CoreGateway {
     try {
       await base.create(recursive: true);
     } on Object catch (error, stackTrace) {
-      AppLogger.warning('Failed to create libbox base directory',
-          source: 'libbox', error: error, stackTrace: stackTrace);
+      AppLogger.warning(
+        'Failed to create libbox base directory',
+        source: 'libbox',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
     return '${base.path}${Platform.pathSeparator}cache.db';
   }
@@ -384,8 +570,8 @@ class LibboxGateway implements CoreGateway {
   Future<String> _resolveWorkingPath() async {
     final override = _settings.serviceWorkingPath.trim();
     if (override.isNotEmpty) return override;
-    // When no override is set, let libboxd default to basePath.
-    // Return empty so LibboxdServiceManager skips the flag.
+    // When no override is set, let targetlib default to basePath.
+    // Return empty so TargetLibServiceManager skips the flag.
     return '';
   }
 
@@ -396,8 +582,9 @@ class LibboxGateway implements CoreGateway {
     try {
       final cacheDir = await getApplicationCacheDirectory();
       if (cacheDir.path.trim().isNotEmpty) {
-        final targetCache =
-            Directory('${cacheDir.path}${Platform.pathSeparator}Target');
+        final targetCache = Directory(
+          '${cacheDir.path}${Platform.pathSeparator}Target',
+        );
         await targetCache.create(recursive: true);
         return targetCache.path;
       }
@@ -405,14 +592,19 @@ class LibboxGateway implements CoreGateway {
     try {
       final tmp = await getTemporaryDirectory();
       if (tmp.path.trim().isNotEmpty) {
-        final targetTmp =
-            Directory('${tmp.path}${Platform.pathSeparator}Target');
+        final targetTmp = Directory(
+          '${tmp.path}${Platform.pathSeparator}Target',
+        );
         await targetTmp.create(recursive: true);
         return targetTmp.path;
       }
     } on Object catch (error, stackTrace) {
-      AppLogger.warning('path_provider temp resolve failed',
-          source: 'libbox', error: error, stackTrace: stackTrace);
+      AppLogger.warning(
+        'path_provider temp resolve failed',
+        source: 'libbox',
+        error: error,
+        stackTrace: stackTrace,
+      );
     }
     return '';
   }
@@ -426,14 +618,22 @@ class LibboxGateway implements CoreGateway {
     final workingPath = await _resolveWorkingPath();
     final tempPath = await _resolveTempPath();
     AppLogger.info(
-        'Launching libboxd base=$baseDir working=$workingPath temp=$tempPath',
-        source: 'libbox');
+      'Launching targetlib base=$baseDir working=$workingPath temp=$tempPath',
+      source: 'targetlib',
+    );
     _daemonProcess = await _serviceManager.launch(
       basePath: baseDir.path,
       workingPath: workingPath,
       tempPath: tempPath,
       locale: _settings.serviceLocale,
     );
+  }
+
+  Future<void> _ensureConnected() async {
+    if (_manager != null) return;
+    _ensureAvailable();
+    await _ensureCore();
+    await _connectCommandServer();
   }
 
   Future<void> _connectCommandServer() async {
@@ -444,35 +644,45 @@ class LibboxGateway implements CoreGateway {
     );
     _channel = channel;
     _daemon = StartedServiceClient(channel);
-    _manager = LibboxManagerClient(channel);
+    _manager = TargetLibClient(channel);
     _callOptions = CallOptions();
     Object? lastError;
     final deadline = DateTime.now().add(const Duration(seconds: 5));
     while (DateTime.now().isBefore(deadline)) {
       try {
-        final stream = _daemon!.subscribeServiceStatus(
-          Empty(),
-          options: _callOptions,
-        );
-        final status = await stream.first.timeout(const Duration(seconds: 1));
-        if (status.status == daemon_pb.ServiceStatus_Type.FATAL) {
-          throw StateError(status.errorMessage);
-        }
+        await _manager!
+            .getVersion(Empty(), options: _callOptions)
+            .timeout(const Duration(seconds: 1));
+        _subscribeCommandStreams();
         return;
       } on Object catch (error) {
         lastError = error;
         await Future<void>.delayed(const Duration(milliseconds: 100));
       }
     }
+    _channel = null;
+    _daemon = null;
+    _manager = null;
+    _callOptions = null;
+    try {
+      await channel.shutdown();
+    } on Object {
+      // Preserve the handshake error, which is the useful failure here.
+    }
     throw StateError('Libbox command server did not become ready: $lastError');
   }
 
   void _subscribeCommandStreams() {
     final daemon = _daemon!;
+    final manager = _manager!;
     final options = _callOptions;
     _listen(
-      daemon.subscribeServiceStatus(Empty(), options: options),
-      _applyServiceStatus,
+      manager.subscribeState(Empty(), options: options),
+      _applyManagerState,
+    );
+    _listen(
+      manager.subscribeSubscriptionEvents(Empty(), options: options),
+      (_) => _subscriptionChanges.add(null),
     );
     _listen(daemon.subscribeLog(Empty(), options: options), _applyLogs);
     _listen(
@@ -508,12 +718,16 @@ class LibboxGateway implements CoreGateway {
     _subscriptions.add(subscription as StreamSubscription<Object?>);
   }
 
-  void _applyServiceStatus(daemon_pb.ServiceStatus status) {
-    final lifecycle = switch (status.status) {
-      daemon_pb.ServiceStatus_Type.STARTING => CoreLifecycle.starting,
-      daemon_pb.ServiceStatus_Type.STARTED => CoreLifecycle.running,
-      daemon_pb.ServiceStatus_Type.STOPPING => CoreLifecycle.stopping,
-      daemon_pb.ServiceStatus_Type.FATAL => CoreLifecycle.failed,
+  void _applyManagerState(targetlib_pb.ServiceState status) {
+    final lifecycle = switch (status.state) {
+      targetlib_pb.ServiceStateType.SERVICE_STATE_STARTING =>
+        CoreLifecycle.starting,
+      targetlib_pb.ServiceStateType.SERVICE_STATE_RUNNING =>
+        CoreLifecycle.running,
+      targetlib_pb.ServiceStateType.SERVICE_STATE_STOPPING =>
+        CoreLifecycle.stopping,
+      targetlib_pb.ServiceStateType.SERVICE_STATE_FAILED =>
+        CoreLifecycle.failed,
       _ => CoreLifecycle.stopped,
     };
     _publish(
@@ -529,22 +743,14 @@ class LibboxGateway implements CoreGateway {
   }
 
   void _applyLogs(daemon_pb.Log batch) {
-    if (batch.reset) _logs.clear();
-    final now = DateTime.now();
+    if (batch.reset) AppLogger.clear();
     for (final message in batch.messages) {
-      final entry = LogEntry(
-        time: now,
-        level: _logLevel(message.level),
+      AppLogger.log(
+        _logLevel(message.level),
+        stripAnsiEscapeSequences(message.message),
         source: 'gRPC',
-        message: stripAnsiEscapeSequences(message.message),
       );
-      _logs.add(entry);
-      AppLogger.log(entry.level, entry.message, source: entry.source);
     }
-    if (_logs.length > 1000) {
-      _logs.removeRange(0, _logs.length - 1000);
-    }
-    _publish(_copyCurrent(logs: List.unmodifiable(_logs)));
   }
 
   void _applyStatus(daemon_pb.Status status) {
@@ -690,7 +896,6 @@ class LibboxGateway implements CoreGateway {
     TrafficSnapshot? traffic,
     List<CoreConnection>? connections,
     List<ProxyGroup>? proxyGroups,
-    List<LogEntry>? logs,
   }) {
     return CoreSnapshot(
       lifecycle: lifecycle ?? _current.lifecycle,
@@ -698,7 +903,6 @@ class LibboxGateway implements CoreGateway {
       traffic: traffic ?? _current.traffic,
       connections: connections ?? _current.connections,
       proxyGroups: proxyGroups ?? _current.proxyGroups,
-      logs: logs ?? _current.logs,
     );
   }
 
@@ -734,7 +938,7 @@ class LibboxGateway implements CoreGateway {
   }
 
   static LogLevel _logLevel(daemon_pb.LogLevel level) => switch (level) {
-    daemon_pb.LogLevel.TRACE => LogLevel.trace,
+    daemon_pb.LogLevel.TRACE => LogLevel.verbose,
     daemon_pb.LogLevel.DEBUG => LogLevel.debug,
     daemon_pb.LogLevel.WARN => LogLevel.warning,
     daemon_pb.LogLevel.ERROR ||

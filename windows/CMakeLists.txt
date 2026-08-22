@@ -87,6 +87,25 @@ if(PLUGIN_BUNDLED_LIBRARIES)
     COMPONENT Runtime)
 endif()
 
+# Bundle the TargetLib service CLI beside target.exe. The service registration
+# persists this exact executable path, so it must be part of every app bundle.
+set(TARGETLIB_EXECUTABLE
+  "${CMAKE_SOURCE_DIR}/../../TargetLib/build/TargetLib.exe")
+if(EXISTS "${TARGETLIB_EXECUTABLE}")
+  install(CODE
+    "file(REMOVE
+      \"${INSTALL_BUNDLE_LIB_DIR}/libboxd.exe\"
+      \"${INSTALL_BUNDLE_LIB_DIR}/targetlibd.exe\")"
+    COMPONENT Runtime)
+  install(FILES "${TARGETLIB_EXECUTABLE}"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+else()
+  message(WARNING
+    "TargetLib.exe was not found at ${TARGETLIB_EXECUTABLE}. "
+    "Run TargetLib/scripts/build.ps1 before packaging Target.")
+endif()
+
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"

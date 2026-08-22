@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-import '../../data/models/log_entry.dart';
 import '../../data/models/proxy_group.dart';
 
 enum CoreLifecycle { unavailable, stopped, starting, running, stopping, failed }
@@ -55,7 +54,6 @@ class CoreSnapshot {
     this.traffic = TrafficSnapshot.zero,
     this.connections = const [],
     this.proxyGroups = const [],
-    this.logs = const [],
   });
 
   final CoreLifecycle lifecycle;
@@ -63,5 +61,4 @@ class CoreSnapshot {
   final TrafficSnapshot traffic;
   final List<CoreConnection> connections;
   final List<ProxyGroup> proxyGroups;
-  final List<LogEntry> logs;
 }

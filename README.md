@@ -1,14 +1,14 @@
 # Target
 
-Target is a Flutter desktop proxy client backed by Libbox. It initializes the
-Libbox native library and uses its authenticated loopback gRPC command server
-for runtime state, commands, and logs.
+Target is a Flutter desktop proxy client backed by TargetLib. It uses the local
+gRPC command server for runtime state, subscriptions, configuration building,
+commands, and logs.
 
 ## Status
 
 - Flutter UI: available
-- Settings and subscription persistence: available
-- Subscription parsing and proxy catalog: available
+- Settings persistence: available
+- TargetLib subscription persistence, parsing, scheduling, and proxy catalog: available
 - Libbox runtime lifecycle: available through FFI and gRPC
 - Runtime metrics, connections, events, and outbound groups: available
 - Active URLTest triggering and refreshed latency results: available
@@ -26,16 +26,12 @@ Flutter widgets
   -> feature controllers
   -> CoreController
   -> CoreGateway
-  -> Libbox FFI and gRPC adapter
+  -> TargetLib gRPC adapter
 ```
 
 `CoreGateway` keeps widgets independent from generated protobuf and process
-management code. Put the platform native library (`libbox.dll`, `libbox.so`, or
-`libbox.dylib`) beside the application or under `bin/`, or set
-`LIBBOX_LIBRARY` to an explicit path.
-
-During local development, a sibling checkout at `../libbox/build` is also
-searched automatically.
+management code. Build the sibling `../TargetLib` checkout before packaging;
+the Windows build copies `../TargetLib/build/TargetLib.exe` beside the app.
 
 ## Run
 

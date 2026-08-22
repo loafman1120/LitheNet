@@ -76,7 +76,14 @@ class SettingsNotifier extends Notifier<SettingsState> {
   }
 
   void setProxyMode(ProxyMode mode) {
-    updateSettings((settings) => settings.copyWith(proxyMode: mode));
+    updateSettings(
+      (settings) => settings.copyWith(
+        proxyMode: mode,
+        // TUN owns the traffic entry point. Keeping the mixed inbound enabled
+        // at the same time makes Windows expose two competing proxy paths.
+        systemProxy: mode == ProxyMode.tun ? false : settings.systemProxy,
+      ),
+    );
   }
 
   void setIPv6(bool value) {

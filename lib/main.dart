@@ -7,10 +7,7 @@ import 'app/target_app.dart';
 import 'core/logging/app_logger.dart';
 import 'data/storage/app_storage_paths.dart';
 import 'data/storage/json_file_store.dart';
-import 'data/storage/secret_store.dart';
 import 'features/settings/data/settings_store.dart';
-import 'features/subscriptions/data/profile_store.dart';
-import 'features/subscriptions/data/subscription_list_store.dart';
 
 export 'app/target_app.dart';
 
@@ -39,31 +36,12 @@ Future<void> main() async {
 
       AppLogger.info('Target initialization started');
       final paths = await AppStoragePaths.resolve();
-      await AppLogger.initialize(paths.logsDirectory);
-      AppLogger.info(
-        'File logging initialized at ${AppLogger.logFilePath}',
-        source: 'logging',
-      );
       final settingsStore = SettingsStore(JsonFileStore(paths.settingsFile));
       final settings = await settingsStore.load();
-      const secretStore = PlatformSecretStore();
-      final profileStore = SecureProfileStore(
-        secretStore,
-        FileProfileStore(paths.profilesDirectory),
-      );
-      await profileStore.migrateLegacyProfiles();
 
       AppLogger.info('Target initialization completed');
       runApp(
-        TargetApp(
-          initialSettings: settings,
-          settingsStore: settingsStore,
-          subscriptionListStore: SecureSubscriptionListStore(
-            JsonFileStore(paths.subscriptionsFile),
-            secretStore,
-          ),
-          profileStore: profileStore,
-        ),
+        TargetApp(initialSettings: settings, settingsStore: settingsStore),
       );
     },
     (error, stackTrace) {
